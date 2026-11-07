@@ -26,6 +26,7 @@ export default function SettingsAndImportView() {
     importDatabase,
     exportDatabase,
     resetDatabase,
+    clearAllData,
   } = useWealth();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -282,6 +283,37 @@ export default function SettingsAndImportView() {
         </form>
       </div>
 
+      {/* Clear All Data Section */}
+      <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 border border-rose-200 dark:border-rose-950/60 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h3 className="font-bold text-rose-700 dark:text-rose-400 text-sm flex items-center gap-1.5">
+            <Trash2 size={16} /> ลบข้อมูลทั้งหมดเพื่อเริ่มบันทึกใหม่ (Clear All Data)
+          </h3>
+          <p className="text-xs text-slate-500 mt-1">
+            ล้างข้อมูลสินทรัพย์ หนี้สิน รายการสมุดบัญชี และรายการลดหย่อนภาษีทั้งหมดให้เป็น ๐ เพื่อเริ่มต้นกรอกข้อมูลใหม่ตั้งแต่ต้น (ยังคงเก็บชื่อและตำแหน่งไว้)
+          </p>
+        </div>
+
+        <button
+          onClick={() => {
+            if (
+              confirm(
+                '⚠️ ยืนยันการลบข้อมูลทั้งหมด?\n\nข้อมูลสินทรัพย์ หนี้สิน สมุดรายรับ-รายจ่าย และภาษีทั้งหมดจะถูกลบเป็น ๐ เพื่อให้ท่านเริ่มบันทึกข้อมูลใหม่ทั้งหมด'
+              )
+            ) {
+              clearAllData();
+              setImportStatus({
+                success: true,
+                message: 'ลบข้อมูลทั้งหมดเรียบร้อยแล้ว พร้อมสำหรับการบันทึกใหม่!',
+              });
+            }
+          }}
+          className="flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition shadow-xs shrink-0"
+        >
+          <Trash2 size={14} /> ลบข้อมูลทั้งหมด (เริ่มบันทึกใหม่)
+        </button>
+      </div>
+
       {/* Reset System Section */}
       <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 border border-slate-200 dark:border-slate-800 shadow-xs flex items-center justify-between">
         <div>
@@ -289,7 +321,7 @@ export default function SettingsAndImportView() {
             คืนค่าเริ่มต้นของระบบ (Reset to Defaults)
           </h3>
           <p className="text-xs text-slate-500 mt-0.5">
-            ล้างข้อมูลในเบราว์เซอร์และโหลดข้อมูลตั้งต้นมาตรฐานปี พ.ศ. ๒๕๖๙
+            ล้างข้อมูลในเบราว์เซอร์และโหลดเทมเพลตข้อมูลตั้งต้นมาตรฐานปี พ.ศ. ๒๕๖๙
           </p>
         </div>
 
@@ -299,7 +331,7 @@ export default function SettingsAndImportView() {
               resetDatabase();
             }
           }}
-          className="flex items-center gap-1.5 px-4 py-2 rounded-xl border border-rose-300 text-rose-600 hover:bg-rose-50 text-xs font-semibold transition"
+          className="flex items-center gap-1.5 px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-semibold transition"
         >
           <RotateCcw size={14} /> คืนค่าเริ่มต้น
         </button>

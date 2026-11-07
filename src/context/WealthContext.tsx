@@ -28,6 +28,7 @@ interface WealthContextType {
   importDatabase: (importedData: any) => Promise<boolean>;
   exportDatabase: () => void;
   resetDatabase: () => void;
+  clearAllData: () => void;
 }
 
 const LOCAL_STORAGE_KEY = 'gov_wealth_database_v2';
@@ -242,6 +243,19 @@ export function WealthProvider({ children }: { children: React.ReactNode }) {
     downloadAnchor.remove();
   };
 
+  const clearAllData = () => {
+    if (!database) return;
+    const cleanDb: FullWealthDatabase = {
+      ...database,
+      assets: [],
+      liabilities: [],
+      journalEntries: [],
+      taxItems: [],
+      historicalRecords: [],
+    };
+    saveDatabase(cleanDb);
+  };
+
   const resetDatabase = async () => {
     localStorage.removeItem(LOCAL_STORAGE_KEY);
     const res = await fetch('/default_wealth_database.json');
@@ -271,6 +285,7 @@ export function WealthProvider({ children }: { children: React.ReactNode }) {
         importDatabase,
         exportDatabase,
         resetDatabase,
+        clearAllData,
       }}
     >
       {children}
