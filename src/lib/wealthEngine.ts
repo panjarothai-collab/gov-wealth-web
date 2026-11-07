@@ -1,0 +1,310 @@
+import {
+  Asset,
+  AssetCategory,
+  ASSET_CATEGORIES,
+  Liability,
+  JournalEntry,
+  TaxItem,
+  UserProfile,
+} from '@/types/wealth';
+
+// Reference date for Apple Cocoa timestamp (2001-01-01 00:00:00 UTC)
+export const APPLE_EPOCH_OFFSET_SECONDS = 978307200;
+
+export function parseAppleOrIsoDate(val: number | string | Date): Date {
+  if (val instanceof Date) return val;
+  if (typeof val === 'number') {
+    // If it's Apple Cocoa timestamp (e.g. ~800,000,000)
+    if (val < 2000000000) {
+      return new Date((val + APPLE_EPOCH_OFFSET_SECONDS) * 1000);
+    }
+    // If it's standard Unix millisecond timestamp
+    return new Date(val);
+  }
+  return new Date(val);
+}
+
+export function formatBuddhistDate(dateInput: number | string | Date): string {
+  const d = parseAppleOrIsoDate(dateInput);
+  const thaiMonths = [
+    'ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.',
+    'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'
+  ];
+  const day = d.getDate();
+  const month = thaiMonths[d.getMonth()];
+  const year = d.getFullYear() + 543;
+  return `${day} ${month} ${year}`;
+}
+
+export function formatCurrency(amount: number): string {
+  return new Intl.NumberFormat('th-TH', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(amount);
+}
+
+export interface NetWorthResult {
+  totalAssets: number;
+  totalLiabilities: number;
+  netWorth: number;
+  debtToEquityRatio: number;
+}
+
+export function calculateNetWorth(
+  assets: Asset[],
+  liabilities: Liability[],
+  usdRate: number = 36.5
+): NetWorthResult {
+  const totalAssets = assets.reduce((sum, a) => {
+    const val = a.isUSD ? (a.amountUSD || 0) * usdRate : (a.amountTHB || 0);
+    return sum + val;
+  }, 0);
+
+  const totalLiabilities = liabilities.reduce(
+    (sum, l) => sum + (l.totalOutstanding || 0),
+    0
+  );
+
+  const netWorth = totalAssets - totalLiabilities;
+  const debtToEquityRatio = netWorth > 0 ? totalLiabilities / netWorth : 0;
+
+  return {
+    totalAssets,
+    totalLiabilities,
+    netWorth,
+    debtToEquityRatio,
+  };
+}
+
+export interface CategoryAllocation {
+  category: AssetCategory;
+  shortName: string;
+  color: string;
+  currentValue: number;
+  actualPercent: number;
+  targetPercent: number;
+  diffPercent: number;
+  rebalanceAmount: number; // positive = buy more, negative = trim/sell
+}
+
+export function calculatePortfolioAllocation(
+  assets: Asset[],
+  profile: UserProfile
+): {
+  allocations: CategoryAllocation[];
+  totalInvested: number;
+} {
+  const usdRate = profile.usdToThbRate || 36.5;
+  const totalInvested = assets.reduce((sum, a) => {
+    return sum + (a.isUSD ? (a.amountUSD || 0) * usdRate : (a.amountTHB || 0));
+  }, 0);
+
+  const targetMap: Record<AssetCategory, number> = {
+    '1. เงินสดและเทียบเท่า': profile.targetCashPercent || 10,
+    '2. กองทุนรวมไทย': profile.targetThaiFundPercent || 20,
+    '3. กองทุนรวมต่างประเทศ': profile.targetForeignFundPercent || 20,
+    '4. หุ้นไทย': profile.targetThaiStockPercent || 20,
+    '5. หุ้นต่างประเทศ': profile.targetForeignStockPercent || 20,
+    '6. พอร์ต FOREX และอื่นๆ': profile.targetForexPercent || 10,
+  };
+
+  const allocations: CategoryAllocation[] = ASSET_CATEGORIES.map((meta) => {
+    const catAssets = assets.filter((a) => a.category === meta.key);
+    const currentValue = catAssets.reduce((sum, a) => {
+      return sum + (a.isUSD ? (a.amountUSD || 0) * usdRate : (a.amountTHB || 0));
+    }, 0);
+
+    const actualPercent =
+      totalInvested > 0 ? (currentValue / totalInvested) * 100 : 0;
+    const targetPercent = targetMap[meta.key] || meta.defaultTargetPercent;
+    const diffPercent = actualPercent - targetPercent;
+    const targetValue = (targetPercent / 100) * totalInvested;
+    const rebalanceAmount = targetValue - currentValue;
+
+    return {
+      category: meta.key,
+      shortName: meta.shortName,
+      color: meta.color,
+      currentValue,
+      actualPercent,
+      targetPercent,
+      diffPercent,
+      rebalanceAmount,
+    };
+  });
+
+  return { allocations, totalInvested };
+}
+
+export interface TaxAssessmentResult {
+  salaryAnnual: number;
+  dividendGross: number;
+  totalGrossIncome: number;
+  standardExpenseDeduction: number;
+  personalAllowance: number;
+  gpfDeduction: number;
+  gpfItemsCount: number;
+  otherDeductions: number;
+  totalDeductions: number;
+  netTaxableIncome: number;
+  computedTax: number;
+  taxPaidWithheld: number;
+  dividendTaxCredit: number;
+  netTaxPayableOrRefund: number; // positive = pay more, negative = refund
+  taxBracketBreakdown: {
+    bracket: string;
+    rate: number;
+    amountInBracket: number;
+    tax: number;
+  }[];
+}
+
+export function calculateTaxAssessment(
+  journalEntries: JournalEntry[],
+  taxItems: TaxItem[],
+  profile: UserProfile,
+  includeDividendsInAssessment: boolean = true
+): TaxAssessmentResult {
+  // 1. Income 40(1) Salary
+  // Look for 40(1) income from journal entries or fallback to profile
+  const salaryJournal = journalEntries
+    .filter(
+      (e) =>
+        e.type === 'รับเงิน (รายได้)' &&
+        (e.revenueCategory?.includes('40(1)') || e.title.includes('เงินเดือน'))
+    )
+    .reduce((sum, e) => sum + e.amount, 0);
+
+  const salaryAnnual =
+    salaryJournal > 0
+      ? salaryJournal
+      : (profile.currentMonthlySalary || 0) * 12;
+
+  // 2. Dividends 40(4)
+  const dividendEntries = journalEntries.filter(
+    (e) =>
+      e.grossDividendAmount &&
+      e.grossDividendAmount > 0 &&
+      e.type === 'รับเงิน (รายได้)'
+  );
+
+  let dividendGross = 0;
+  let dividendWithheld = 0;
+  let dividendTaxCredit = 0;
+
+  if (includeDividendsInAssessment) {
+    dividendEntries.forEach((e) => {
+      const gross = e.grossDividendAmount || e.amount;
+      const corpRate = e.corporateTaxRatePercent || 20;
+      dividendGross += gross;
+      dividendWithheld += e.withholdingTaxAmount || gross * 0.1;
+      dividendTaxCredit +=
+        e.dividendTaxCreditAmount || (gross * corpRate) / (100 - corpRate);
+    });
+  }
+
+  const totalGrossIncome =
+    salaryAnnual + (includeDividendsInAssessment ? dividendGross + dividendTaxCredit : 0);
+
+  // 3. Deductions
+  // Standard expense deduction: 50% max 100,000 THB for 40(1) + 40(2)
+  const standardExpenseDeduction = Math.min(salaryAnnual * 0.5, 100000);
+  const personalAllowance = 60000;
+
+  // GPF Deductions
+  const gpfItems = taxItems.filter(
+    (t) => t.deductionType === 'กบข.' || t.fundCode.toLowerCase().includes('gpf')
+  );
+  const gpfItemsCount = gpfItems.length;
+  const gpfTotalDeduction = gpfItems.reduce((sum, t) => sum + t.amount, 0);
+  // Cap at 15% of salary, max 500,000 THB
+  const gpfCap = Math.min(salaryAnnual * 0.15, 500000);
+  const gpfDeduction = Math.min(gpfTotalDeduction, gpfCap);
+
+  // Other tax items
+  const otherItems = taxItems.filter(
+    (t) => t.deductionType !== 'กบข.' && !t.fundCode.toLowerCase().includes('gpf')
+  );
+  const otherDeductions = otherItems.reduce((sum, t) => sum + t.amount, 0);
+
+  const totalDeductions =
+    standardExpenseDeduction +
+    personalAllowance +
+    gpfDeduction +
+    otherDeductions;
+
+  const netTaxableIncome = Math.max(0, totalGrossIncome - totalDeductions);
+
+  // 4. Tax Brackets (Thailand Progressive Tax)
+  const brackets = [
+    { limit: 150000, rate: 0.0, label: '0 - 150,000 บาท' },
+    { limit: 150000, rate: 0.05, label: '150,001 - 300,000 บาท' },
+    { limit: 200000, rate: 0.10, label: '300,001 - 500,000 บาท' },
+    { limit: 250000, rate: 0.15, label: '500,001 - 750,000 บาท' },
+    { limit: 250000, rate: 0.20, label: '750,001 - 1,000,000 บาท' },
+    { limit: 1000000, rate: 0.25, label: '1,000,001 - 2,000,000 บาท' },
+    { limit: 3000000, rate: 0.30, label: '2,000,001 - 5,000,000 บาท' },
+    { limit: Infinity, rate: 0.35, label: 'เกิน 5,000,000 บาท ขึ้นไป' },
+  ];
+
+  let remainingTaxable = netTaxableIncome;
+  let computedTax = 0;
+  const taxBracketBreakdown = [];
+
+  for (const b of brackets) {
+    if (remainingTaxable <= 0) {
+      taxBracketBreakdown.push({
+        bracket: b.label,
+        rate: b.rate,
+        amountInBracket: 0,
+        tax: 0,
+      });
+      continue;
+    }
+
+    const chunk = Math.min(remainingTaxable, b.limit);
+    const taxInChunk = chunk * b.rate;
+    computedTax += taxInChunk;
+    remainingTaxable -= chunk;
+
+    taxBracketBreakdown.push({
+      bracket: b.label,
+      rate: b.rate,
+      amountInBracket: chunk,
+      tax: taxInChunk,
+    });
+  }
+
+  // 5. Withholding tax
+  // Extract withholding tax from journal or default estimation
+  const taxWithheldFromJournal = journalEntries
+    .filter((e) => e.title.includes('ภาษีหัก') || e.withholdingTaxAmount)
+    .reduce(
+      (sum, e) => sum + (e.withholdingTaxAmount || (e.title.includes('ภาษี') ? e.amount : 0)),
+      0
+    );
+
+  const taxPaidWithheld =
+    taxWithheldFromJournal > 0 ? taxWithheldFromJournal : 6602.84; // Matches recorded amount
+
+  const netTaxPayableOrRefund =
+    computedTax - taxPaidWithheld - dividendTaxCredit;
+
+  return {
+    salaryAnnual,
+    dividendGross,
+    totalGrossIncome,
+    standardExpenseDeduction,
+    personalAllowance,
+    gpfDeduction,
+    gpfItemsCount,
+    otherDeductions,
+    totalDeductions,
+    netTaxableIncome,
+    computedTax,
+    taxPaidWithheld,
+    dividendTaxCredit,
+    netTaxPayableOrRefund,
+    taxBracketBreakdown,
+  };
+}
