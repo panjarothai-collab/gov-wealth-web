@@ -6,6 +6,7 @@ import {
   calculateNetWorth,
   formatCurrency,
 } from '@/lib/wealthEngine';
+import { calculateFinancialHealth } from '@/lib/financialHealthEngine';
 import {
   PieChart,
   Pie,
@@ -22,11 +23,12 @@ import {
   TrendingUp,
   ShieldCheck,
   ChevronRight,
+  Activity,
 } from 'lucide-react';
 import { Asset, AssetCategory, ASSET_CATEGORIES, Liability } from '@/types/wealth';
 
 export default function BalanceSheetView() {
-  const { database, addAsset, deleteAsset, addLiability, deleteLiability } = useWealth();
+  const { database, addAsset, deleteAsset, addLiability, deleteLiability, setActiveTab } = useWealth();
   const [showAddAsset, setShowAddAsset] = useState(false);
   const [showAddLiability, setShowAddLiability] = useState(false);
 
@@ -47,6 +49,15 @@ export default function BalanceSheetView() {
 
   const { totalAssets, totalLiabilities, netWorth, debtToEquityRatio } =
     calculateNetWorth(database.assets, database.liabilities, database.profile.usdToThbRate);
+
+  const healthReport = calculateFinancialHealth(
+    database.assets,
+    database.liabilities,
+    database.journalEntries,
+    database.taxItems,
+    database.profile,
+    2026
+  );
 
   // Donut chart data: Assets vs Liabilities
   const donutData = [
@@ -121,6 +132,36 @@ export default function BalanceSheetView() {
             <Plus size={16} /> เพิ่มหนี้สิน
           </button>
         </div>
+      </div>
+
+      {/* Financial Health Quick Widget */}
+      <div className="bg-gradient-to-r from-emerald-950 via-teal-950 to-slate-900 rounded-2xl p-5 text-white shadow-md flex flex-col md:flex-row md:items-center justify-between gap-4 border border-emerald-700/40">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-2xl bg-white/10 backdrop-blur-md flex items-center justify-center text-emerald-300 shrink-0 border border-white/20">
+            <Activity size={24} />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs uppercase tracking-wider text-emerald-300 font-bold">
+                ตรวจสุขภาพทางการเงิน (CFP & ระเบียบข้าราชการ)
+              </span>
+              <span className="text-[10px] bg-emerald-500/20 text-emerald-200 border border-emerald-400/30 px-2 py-0.5 rounded-full font-semibold">
+                ๕ อัตราส่วน
+              </span>
+            </div>
+            <div className="text-sm md:text-base font-extrabold mt-0.5 flex flex-wrap items-baseline gap-2">
+              <span>คะแนนสุขภาพ: <strong className="text-emerald-300 font-mono text-xl">{healthReport.overallScore}</strong> / ๑๐๐</span>
+              <span className="text-xs font-normal text-slate-300">({healthReport.tierName})</span>
+            </div>
+          </div>
+        </div>
+
+        <button
+          onClick={() => setActiveTab('health')}
+          className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs transition shadow-sm shrink-0"
+        >
+          ดูผลตรวจสุขภาพเชิงลึก ๕ อัตราส่วน <ChevronRight size={14} />
+        </button>
       </div>
 
       {/* Hero Stats & Donut Chart */}

@@ -3,12 +3,14 @@
 import React from 'react';
 import { useWealth, WealthProvider } from '@/context/WealthContext';
 import BalanceSheetView from '@/components/views/BalanceSheetView';
+import FinancialHealthView from '@/components/views/FinancialHealthView';
 import PortfolioView from '@/components/views/PortfolioView';
 import CashFlowJournalView from '@/components/views/CashFlowJournalView';
 import TaxAndGPFView from '@/components/views/TaxAndGPFView';
 import SettingsAndImportView from '@/components/views/SettingsAndImportView';
 import {
   Wallet,
+  Activity,
   PieChart as PieIcon,
   BookOpen,
   Receipt,
@@ -37,6 +39,7 @@ function MainApp() {
 
   const navItems = [
     { id: 'balance', label: 'สรุปงบดุลส่วนบุคคล', shortLabel: 'งบดุล', icon: Wallet },
+    { id: 'health', label: 'ตรวจสุขภาพการเงิน', shortLabel: 'สุขภาพ', icon: Activity },
     { id: 'portfolio', label: 'พอร์ต ๖ หมวด & สรุป', shortLabel: 'พอร์ต ๖', icon: PieIcon },
     { id: 'cashflow', label: 'กระแสเงินสด', shortLabel: 'กระแสเงิน', icon: BookOpen },
     { id: 'tax', label: 'ภาษี & กบข./RMF', shortLabel: 'ภาษี/กบข.', icon: Receipt },
@@ -132,6 +135,7 @@ function MainApp() {
       {/* Main Content View Container */}
       <main className="flex-1 p-4 md:p-8 max-w-7xl mx-auto w-full">
         {activeTab === 'balance' && <BalanceSheetView />}
+        {activeTab === 'health' && <FinancialHealthView />}
         {activeTab === 'portfolio' && <PortfolioView />}
         {activeTab === 'cashflow' && <CashFlowJournalView />}
         {activeTab === 'tax' && <TaxAndGPFView />}

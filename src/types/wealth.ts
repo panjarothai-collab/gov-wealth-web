@@ -152,6 +152,52 @@ export interface HistoricalRecord {
   deRatio: number;
 }
 
+export type HealthStatusLevel = 'EXCELLENT' | 'WARNING' | 'DANGER';
+
+export interface FinancialRatioDetail {
+  id: string;
+  nameTh: string;
+  nameEn: string;
+  value: number;
+  unit: string;
+  formattedValue: string;
+  benchmarkText: string;
+  status: HealthStatusLevel;
+  score: number; // 0 - 100
+  civilServantNote: string;
+  academicRationale: string;
+}
+
+export interface ActionablePrescription {
+  id: string;
+  type: 'EMERGENCY_FUND' | 'DEBT_OPTIMIZATION' | 'GPF_SAVINGS' | 'PASSIVE_INCOME';
+  title: string;
+  description: string;
+  recommendedActionAmount?: number;
+  priority: 'HIGH' | 'MEDIUM' | 'INFO';
+}
+
+export interface FinancialHealthReport {
+  overallScore: number;
+  tierName: string;
+  tierColor: string;
+  calculatedAt: string;
+  monthlyIncomeBaseline: number;
+  monthlyExpenseBaseline: number;
+  monthlyDebtBaseline: number;
+  liquidAssetsTotal: number;
+  totalAssets: number;
+  totalLiabilities: number;
+  ratios: {
+    basicLiquidity: FinancialRatioDetail;
+    debtServiceRatio: FinancialRatioDetail;
+    savingsRatio: FinancialRatioDetail;
+    debtToAssetRatio: FinancialRatioDetail;
+    survivalRatio: FinancialRatioDetail;
+  };
+  prescriptions: ActionablePrescription[];
+}
+
 export interface FullWealthDatabase {
   version: number;
   exportedAt: number;
