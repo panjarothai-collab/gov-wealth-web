@@ -20,11 +20,13 @@ import {
   Wallet,
   ShieldAlert,
   Coins,
+  ShieldCheck,
+  Layers,
 } from 'lucide-react';
 import { AssetCategory } from '@/types/wealth';
 
 export default function PortfolioView() {
-  const { database, updateProfile } = useWealth();
+  const { database, updateProfile, setActiveTab } = useWealth();
   const [isEditingTargets, setIsEditingTargets] = useState(false);
 
   // Targets state
@@ -48,7 +50,7 @@ export default function PortfolioView() {
 
   if (!database) return null;
 
-  const { allocations, totalInvested, expectedReturnInfo } = calculatePortfolioAllocation(
+  const { allocations, totalInvested, totalGpfValue, gpfPlan, expectedReturnInfo } = calculatePortfolioAllocation(
     database.assets,
     {
       ...database.profile,
@@ -106,6 +108,56 @@ export default function PortfolioView() {
           <Sliders size={16} /> {isEditingTargets ? 'ปิดการตั้งค่า' : 'ปรับสัดส่วน & ผลตอบแทนคาดหวัง'}
         </button>
       </div>
+
+      {/* GPF Look-Through Active Info Banner */}
+      {totalGpfValue > 0 ? (
+        <div className="bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/70 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs shadow-xs">
+          <div className="flex items-start sm:items-center gap-3">
+            <div className="p-2.5 rounded-xl bg-emerald-600 text-white shrink-0 shadow-xs">
+              <ShieldCheck size={20} />
+            </div>
+            <div>
+              <div className="font-bold text-emerald-900 dark:text-emerald-200 text-sm flex items-center gap-2">
+                <span>ระบบ Look-Through กบข. ทำงานอัตโนมัติ</span>
+                <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/80 text-emerald-800 dark:text-emerald-300 font-bold text-[11px] border border-emerald-300/60 dark:border-emerald-700">
+                  {gpfPlan.planName}
+                </span>
+              </div>
+              <p className="text-emerald-700 dark:text-emerald-400 mt-0.5">
+                ยอด กบข. <b>฿{formatCurrency(totalGpfValue)}</b> ถูกกระจายเข้าพอร์ตรวมตามสัดส่วนแผนของคุณ (หุ้นไทย {gpfPlan.thaiStockPercent}%, หุ้น ตปท. {gpfPlan.foreignStockPercent}%, ทองคำ {gpfPlan.goldPercent}%) โดยไม่นับซ้ำและสะท้อนความเสี่ยงแท้จริง
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => setActiveTab('tax')}
+            className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs whitespace-nowrap transition shadow-xs flex items-center gap-1.5 self-start sm:self-center"
+          >
+            <Sliders size={14} /> ปรับเปลี่ยนแผน กบข.
+          </button>
+        </div>
+      ) : (
+        <div className="bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+          <div className="flex items-start sm:items-center gap-3">
+            <div className="p-2.5 rounded-xl bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 shrink-0">
+              <ShieldCheck size={20} />
+            </div>
+            <div>
+              <div className="font-bold text-slate-800 dark:text-slate-200 text-sm">
+                ยังไม่ได้ระบุยอดเงินสะสม กบข. เพื่อทำ Look-Through
+              </div>
+              <p className="text-slate-500 mt-0.5">
+                คุณสามารถบันทึกยอดสะสม กบข. เพื่อให้ระบบดึงสัดส่วนแผนผสมเอง (หุ้นไทย 35%, หุ้น ตปท. 40%, ทองคำ 25%) เข้าพอร์ตให้อัตโนมัติ
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => setActiveTab('tax')}
+            className="px-3.5 py-2 rounded-xl bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-200 font-bold text-xs whitespace-nowrap transition self-start sm:self-center"
+          >
+            ตั้งค่ายอดและแผน กบข.
+          </button>
+        </div>
+      )}
 
       {/* Hero Section: Academic Expected Return (MPT) & Retirement Wealth Projection */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
@@ -518,6 +570,11 @@ export default function PortfolioView() {
                   <span className="font-bold text-slate-900 dark:text-white text-sm flex items-center gap-2">
                     <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: alloc.color }}></span>
                     {alloc.shortName}
+                    {alloc.gpfDecomposedValue > 0 && (
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 font-semibold border border-emerald-300 dark:border-emerald-800">
+                        +กบข. {formatCurrency(alloc.gpfDecomposedValue)} ฿
+                      </span>
+                    )}
                   </span>
 
                   <span className={`text-[11px] px-2.5 py-0.5 rounded-full font-semibold flex items-center gap-1 ${
@@ -632,8 +689,15 @@ export default function PortfolioView() {
                     <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: a.color }}></span>
                     {a.shortName}
                   </td>
-                  <td className="py-3 px-4 text-right font-medium text-slate-900 dark:text-white">
-                    {formatCurrency(a.currentValue)} ฿
+                  <td className="py-3 px-4 text-right">
+                    <div className="font-bold text-slate-900 dark:text-white">
+                      {formatCurrency(a.currentValue)} ฿
+                    </div>
+                    {a.gpfDecomposedValue > 0 && (
+                      <div className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">
+                        (ตรง: {formatCurrency(a.directValue)} | กบข.: +{formatCurrency(a.gpfDecomposedValue)})
+                      </div>
+                    )}
                   </td>
                   <td className="py-3 px-4 text-center font-semibold text-slate-700 dark:text-slate-300">
                     {a.actualPercent.toFixed(1)}%

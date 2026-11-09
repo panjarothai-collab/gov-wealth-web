@@ -77,6 +77,7 @@ export interface Asset {
   amountUSD: number;
   isUSD: boolean;
   notes: string;
+  isGpf?: boolean;
 }
 
 export interface Liability {
@@ -163,12 +164,119 @@ export interface UserCategory {
   taxDeductionTag?: string;
 }
 
+export type GpfPlanType =
+  | 'DIY'
+  | 'MAIN'
+  | 'EQUITY_65'
+  | 'EQUITY_100'
+  | 'AGE_BASED'
+  | 'GOLD'
+  | 'FIXED_INCOME';
+
+export interface GpfPlanWeights {
+  planType: GpfPlanType;
+  planName: string;
+  thaiStockPercent: number; // e.g. 35
+  foreignStockPercent: number; // e.g. 40
+  goldPercent: number; // e.g. 25
+  thaiBondPercent: number; // e.g. 0
+  foreignBondPercent: number; // e.g. 0
+  cashPercent: number; // e.g. 0
+  totalBalance?: number; // ยอดสะสมรวม กบข.
+  lastUpdated?: string;
+}
+
+export const DEFAULT_GPF_PLAN: GpfPlanWeights = {
+  planType: 'DIY',
+  planName: 'แผนผสมเอง (Member DIY)',
+  thaiStockPercent: 35,
+  foreignStockPercent: 40,
+  goldPercent: 25,
+  thaiBondPercent: 0,
+  foreignBondPercent: 0,
+  cashPercent: 0,
+};
+
+export const GPF_PRESET_PLANS: Record<GpfPlanType, Omit<GpfPlanWeights, 'totalBalance' | 'lastUpdated'>> = {
+  DIY: {
+    planType: 'DIY',
+    planName: 'แผนผสมเอง (Member DIY)',
+    thaiStockPercent: 35,
+    foreignStockPercent: 40,
+    goldPercent: 25,
+    thaiBondPercent: 0,
+    foreignBondPercent: 0,
+    cashPercent: 0,
+  },
+  MAIN: {
+    planType: 'MAIN',
+    planName: 'แผนหลัก (ตราสารหนี้ 60% + หุ้น 30% + ทางเลือก 10%)',
+    thaiStockPercent: 18,
+    foreignStockPercent: 12,
+    goldPercent: 10,
+    thaiBondPercent: 60,
+    foreignBondPercent: 0,
+    cashPercent: 0,
+  },
+  EQUITY_65: {
+    planType: 'EQUITY_65',
+    planName: 'แผนหุ้น 65 (หุ้นไทย 35% + หุ้น ตปท. 30% + ตราสารหนี้ 35%)',
+    thaiStockPercent: 35,
+    foreignStockPercent: 30,
+    goldPercent: 0,
+    thaiBondPercent: 35,
+    foreignBondPercent: 0,
+    cashPercent: 0,
+  },
+  EQUITY_100: {
+    planType: 'EQUITY_100',
+    planName: 'แผนหุ้น 100 (หุ้นไทย 50% + หุ้น ตปท. 50%)',
+    thaiStockPercent: 50,
+    foreignStockPercent: 50,
+    goldPercent: 0,
+    thaiBondPercent: 0,
+    foreignBondPercent: 0,
+    cashPercent: 0,
+  },
+  AGE_BASED: {
+    planType: 'AGE_BASED',
+    planName: 'แผนสมดุลตามอายุ (Life-Path / Age-Based)',
+    thaiStockPercent: 25,
+    foreignStockPercent: 25,
+    goldPercent: 10,
+    thaiBondPercent: 40,
+    foreignBondPercent: 0,
+    cashPercent: 0,
+  },
+  GOLD: {
+    planType: 'GOLD',
+    planName: 'แผนทองคำ (Gold 100%)',
+    thaiStockPercent: 0,
+    foreignStockPercent: 0,
+    goldPercent: 100,
+    thaiBondPercent: 0,
+    foreignBondPercent: 0,
+    cashPercent: 0,
+  },
+  FIXED_INCOME: {
+    planType: 'FIXED_INCOME',
+    planName: 'แผนตราสารหนี้ (Fixed Income 100%)',
+    thaiStockPercent: 0,
+    foreignStockPercent: 0,
+    goldPercent: 0,
+    thaiBondPercent: 100,
+    foreignBondPercent: 0,
+    cashPercent: 0,
+  },
+};
+
 export interface UserProfile {
   fullName: string;
   organization: string;
   rank: string;
   currentMonthlySalary: number;
   gpfRatePercent: number; // 3% - 15%
+  gpfPlan?: GpfPlanWeights;
   targetCashPercent: number;
   targetThaiFundPercent: number;
   targetForeignFundPercent: number;

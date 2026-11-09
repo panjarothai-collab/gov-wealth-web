@@ -8,6 +8,12 @@ import {
   formatBuddhistDate,
 } from '@/lib/wealthEngine';
 import {
+  GpfPlanType,
+  GpfPlanWeights,
+  GPF_PRESET_PLANS,
+  DEFAULT_GPF_PLAN,
+} from '@/types/wealth';
+import {
   Receipt,
   ShieldCheck,
   TrendingUp,
@@ -20,16 +26,41 @@ import {
   Sliders,
   Sparkles,
   ArrowRight,
+  PieChart as PieIcon,
+  Save,
+  Check,
+  Layers,
 } from 'lucide-react';
 
 export default function TaxAndGPFView() {
-  const { database } = useWealth();
+  const { database, updateProfile, addAsset, updateAsset, setActiveTab } = useWealth();
   const [includeDividends, setIncludeDividends] = useState(true);
   const [activeSubTab, setActiveSubTab] = useState<'summary' | 'gpf' | 'simulator' | 'brackets'>('summary');
 
   // Interactive Tax Simulation state
   const [simThaiEsg, setSimThaiEsg] = useState<number>(0);
   const [simRmfGpfExtra, setSimRmfGpfExtra] = useState<number>(0);
+
+  // GPF Plan Configuration state
+  const gpfPlanFromProfile = database?.profile?.gpfPlan || DEFAULT_GPF_PLAN;
+  const [planType, setPlanType] = useState<GpfPlanType>(gpfPlanFromProfile.planType || 'DIY');
+  const [planName, setPlanName] = useState<string>(gpfPlanFromProfile.planName || 'แผนผสมเอง (Member DIY)');
+  const [thaiStock, setThaiStock] = useState<number>(gpfPlanFromProfile.thaiStockPercent ?? 35);
+  const [foreignStock, setForeignStock] = useState<number>(gpfPlanFromProfile.foreignStockPercent ?? 40);
+  const [gold, setGold] = useState<number>(gpfPlanFromProfile.goldPercent ?? 25);
+  const [thaiBond, setThaiBond] = useState<number>(gpfPlanFromProfile.thaiBondPercent ?? 0);
+  const [foreignBond, setForeignBond] = useState<number>(gpfPlanFromProfile.foreignBondPercent ?? 0);
+  const [cash, setCash] = useState<number>(gpfPlanFromProfile.cashPercent ?? 0);
+
+  // Existing GPF asset in assets list
+  const existingGpfAsset = database?.assets?.find(
+    (a) => a.isGpf || a.name.toLowerCase().includes('กบข') || a.institution.toLowerCase().includes('กบข')
+  );
+
+  const [gpfBalance, setGpfBalance] = useState<number>(
+    existingGpfAsset?.amountTHB || gpfPlanFromProfile.totalBalance || 0
+  );
+  const [isSavedToast, setIsSavedToast] = useState(false);
 
   if (!database) return null;
 
@@ -423,6 +454,365 @@ export default function TaxAndGPFView() {
 
       {activeSubTab === 'gpf' && (
         <div className="space-y-6">
+          {/* GPF Plan Configuration & Look-Through Card */}
+          <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 border border-slate-200 dark:border-slate-800 shadow-xs space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
+              <div>
+                <div className="flex items-center gap-2 text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                  <Sliders size={16} /> การตั้งค่าแผนการลงทุน กบข. สมาชิก (GPF Investment Plan)
+                </div>
+                <h3 className="text-xl font-bold text-slate-900 dark:text-white mt-1">
+                  แผนการลงทุน & การกระจายสัดส่วนพอร์ตอัตโนมัติ (Look-Through)
+                </h3>
+                <p className="text-xs text-slate-500 mt-1">
+                  ระบบจะนำยอดเงินสะสม กบข. ของคุณมากระจายเข้าสู่ 6 หมวดสินทรัพย์หลักตามสัดส่วนของแผนที่เลือก เพื่อสะท้อนความเสี่ยงและผลตอบแทนพอร์ตรวมอย่างถูกต้อง
+                </p>
+              </div>
+
+              {isSavedToast ? (
+                <div className="px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-bold flex items-center gap-2 shadow-xs animate-in fade-in">
+                  <CheckCircle2 size={16} /> บันทึกแผนและซิงค์ยอด กบข. เรียบร้อยแล้ว!
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const totalPercent = thaiStock + foreignStock + gold + thaiBond + foreignBond + cash;
+                    if (Math.abs(totalPercent - 100) > 0.01) {
+                      alert(`สัดส่วนแผน กบข. รวมต้องเท่ากับ 100% (ปัจจุบัน: ${totalPercent}%)`);
+                      return;
+                    }
+
+                    const updatedPlan: GpfPlanWeights = {
+                      planType,
+                      planName,
+                      thaiStockPercent: thaiStock,
+                      foreignStockPercent: foreignStock,
+                      goldPercent: gold,
+                      thaiBondPercent: thaiBond,
+                      foreignBondPercent: foreignBond,
+                      cashPercent: cash,
+                      totalBalance: gpfBalance,
+                      lastUpdated: new Date().toISOString(),
+                    };
+
+                    updateProfile({ gpfPlan: updatedPlan });
+
+                    if (gpfBalance > 0) {
+                      if (existingGpfAsset) {
+                        updateAsset(existingGpfAsset.id, {
+                          name: 'กองทุนบำเหน็จบำนาญข้าราชการ (กบข.)',
+                          amountTHB: gpfBalance,
+                          notes: `แผน กบข. Look-Through: หุ้นไทย ${thaiStock}%, หุ้น ตปท. ${foreignStock}%, ทองคำ ${gold}%`,
+                          isGpf: true,
+                        });
+                      } else {
+                        addAsset({
+                          name: 'กองทุนบำเหน็จบำนาญข้าราชการ (กบข.)',
+                          category: '2. กองทุนรวมไทย',
+                          institution: 'กองทุนบำเหน็จบำนาญข้าราชการ (กบข.)',
+                          amountTHB: gpfBalance,
+                          amountUSD: 0,
+                          isUSD: false,
+                          notes: `แผน กบข. Look-Through: หุ้นไทย ${thaiStock}%, หุ้น ตปท. ${foreignStock}%, ทองคำ ${gold}%`,
+                          isGpf: true,
+                        });
+                      }
+                    }
+
+                    setIsSavedToast(true);
+                    setTimeout(() => setIsSavedToast(false), 3500);
+                  }}
+                  className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-2 shadow-xs transition"
+                >
+                  <Save size={16} /> บันทึกแผน & ซิงค์พอร์ตสินทรัพย์
+                </button>
+              )}
+            </div>
+
+            {/* Plan Preset Selector */}
+            <div>
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-2">
+                เลือกรูปแบบแผนการลงทุน กบข.:
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {(Object.keys(GPF_PRESET_PLANS) as GpfPlanType[]).map((key) => {
+                  const preset = GPF_PRESET_PLANS[key];
+                  const isSelected = planType === key;
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => {
+                        const p = GPF_PRESET_PLANS[key];
+                        if (!p) return;
+                        setPlanType(key);
+                        setPlanName(p.planName);
+                        setThaiStock(p.thaiStockPercent);
+                        setForeignStock(p.foreignStockPercent);
+                        setGold(p.goldPercent);
+                        setThaiBond(p.thaiBondPercent);
+                        setForeignBond(p.foreignBondPercent);
+                        setCash(p.cashPercent);
+                      }}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition border ${
+                        isSelected
+                          ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+                          : 'bg-slate-50 hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700'
+                      }`}
+                    >
+                      {preset.planName.split('(')[0].trim()}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Asset Allocation Sliders / Number Inputs */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                  สัดส่วนสินทรัพย์ในแผน กบข. (รวมต้องเท่ากับ 100%):
+                </span>
+                {(() => {
+                  const tot = thaiStock + foreignStock + gold + thaiBond + foreignBond + cash;
+                  const is100 = Math.abs(tot - 100) < 0.01;
+                  return (
+                    <span
+                      className={`text-xs px-2.5 py-0.5 rounded-full font-bold border ${
+                        is100
+                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300'
+                          : 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950 dark:text-rose-300'
+                      }`}
+                    >
+                      {is100 ? '✓ รวมครบ 100%' : `⚠ รวม ${tot}% (ขาด/เกิน ${100 - tot}%)`}
+                    </span>
+                  );
+                })()}
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                {/* 1. หุ้นไทย */}
+                <div className="p-3 bg-amber-50/60 dark:bg-amber-950/20 rounded-xl border border-amber-200 dark:border-amber-800/50">
+                  <span className="text-xs font-bold text-amber-800 dark:text-amber-300 block mb-1">
+                    หุ้นไทย
+                  </span>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="1"
+                      value={thaiStock}
+                      onChange={(e) => {
+                        setThaiStock(parseFloat(e.target.value) || 0);
+                        setPlanType('DIY');
+                        setPlanName('แผนผสมเอง (Member DIY)');
+                      }}
+                      className="w-full px-2.5 py-1.5 rounded-lg border border-amber-300 dark:border-amber-700 bg-white dark:bg-slate-800 text-xs font-bold text-slate-900 dark:text-white"
+                    />
+                    <span className="absolute right-2.5 top-1.5 text-xs text-slate-400 font-bold">%</span>
+                  </div>
+                  <span className="text-[10px] text-amber-700/80 dark:text-amber-400 mt-1 block">
+                    กระจายเข้าหมวด 4
+                  </span>
+                </div>
+
+                {/* 2. หุ้นต่างประเทศ */}
+                <div className="p-3 bg-purple-50/60 dark:bg-purple-950/20 rounded-xl border border-purple-200 dark:border-purple-800/50">
+                  <span className="text-xs font-bold text-purple-800 dark:text-purple-300 block mb-1">
+                    หุ้นต่างประเทศ
+                  </span>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="1"
+                      value={foreignStock}
+                      onChange={(e) => {
+                        setForeignStock(parseFloat(e.target.value) || 0);
+                        setPlanType('DIY');
+                        setPlanName('แผนผสมเอง (Member DIY)');
+                      }}
+                      className="w-full px-2.5 py-1.5 rounded-lg border border-purple-300 dark:border-purple-700 bg-white dark:bg-slate-800 text-xs font-bold text-slate-900 dark:text-white"
+                    />
+                    <span className="absolute right-2.5 top-1.5 text-xs text-slate-400 font-bold">%</span>
+                  </div>
+                  <span className="text-[10px] text-purple-700/80 dark:text-purple-400 mt-1 block">
+                    กระจายเข้าหมวด 5
+                  </span>
+                </div>
+
+                {/* 3. ทองคำ */}
+                <div className="p-3 bg-rose-50/60 dark:bg-rose-950/20 rounded-xl border border-rose-200 dark:border-rose-800/50">
+                  <span className="text-xs font-bold text-rose-800 dark:text-rose-300 block mb-1">
+                    ทองคำ / ทางเลือก
+                  </span>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="1"
+                      value={gold}
+                      onChange={(e) => {
+                        setGold(parseFloat(e.target.value) || 0);
+                        setPlanType('DIY');
+                        setPlanName('แผนผสมเอง (Member DIY)');
+                      }}
+                      className="w-full px-2.5 py-1.5 rounded-lg border border-rose-300 dark:border-rose-700 bg-white dark:bg-slate-800 text-xs font-bold text-slate-900 dark:text-white"
+                    />
+                    <span className="absolute right-2.5 top-1.5 text-xs text-slate-400 font-bold">%</span>
+                  </div>
+                  <span className="text-[10px] text-rose-700/80 dark:text-rose-400 mt-1 block">
+                    กระจายเข้าหมวด 6
+                  </span>
+                </div>
+
+                {/* 4. ตราสารหนี้ไทย */}
+                <div className="p-3 bg-teal-50/60 dark:bg-teal-950/20 rounded-xl border border-teal-200 dark:border-teal-800/50">
+                  <span className="text-xs font-bold text-teal-800 dark:text-teal-300 block mb-1">
+                    ตราสารหนี้ไทย
+                  </span>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="1"
+                      value={thaiBond}
+                      onChange={(e) => {
+                        setThaiBond(parseFloat(e.target.value) || 0);
+                        setPlanType('DIY');
+                        setPlanName('แผนผสมเอง (Member DIY)');
+                      }}
+                      className="w-full px-2.5 py-1.5 rounded-lg border border-teal-300 dark:border-teal-700 bg-white dark:bg-slate-800 text-xs font-bold text-slate-900 dark:text-white"
+                    />
+                    <span className="absolute right-2.5 top-1.5 text-xs text-slate-400 font-bold">%</span>
+                  </div>
+                  <span className="text-[10px] text-teal-700/80 dark:text-teal-400 mt-1 block">
+                    กระจายเข้าหมวด 2
+                  </span>
+                </div>
+
+                {/* 5. ตราสารหนี้ ตปท. */}
+                <div className="p-3 bg-sky-50/60 dark:bg-sky-950/20 rounded-xl border border-sky-200 dark:border-sky-800/50">
+                  <span className="text-xs font-bold text-sky-800 dark:text-sky-300 block mb-1">
+                    ตราสารหนี้ ตปท.
+                  </span>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="1"
+                      value={foreignBond}
+                      onChange={(e) => {
+                        setForeignBond(parseFloat(e.target.value) || 0);
+                        setPlanType('DIY');
+                        setPlanName('แผนผสมเอง (Member DIY)');
+                      }}
+                      className="w-full px-2.5 py-1.5 rounded-lg border border-sky-300 dark:border-sky-700 bg-white dark:bg-slate-800 text-xs font-bold text-slate-900 dark:text-white"
+                    />
+                    <span className="absolute right-2.5 top-1.5 text-xs text-slate-400 font-bold">%</span>
+                  </div>
+                  <span className="text-[10px] text-sky-700/80 dark:text-sky-400 mt-1 block">
+                    กระจายเข้าหมวด 3
+                  </span>
+                </div>
+
+                {/* 6. เงินฝาก / ตลาดเงิน */}
+                <div className="p-3 bg-emerald-50/60 dark:bg-emerald-950/20 rounded-xl border border-emerald-200 dark:border-emerald-800/50">
+                  <span className="text-xs font-bold text-emerald-800 dark:text-emerald-300 block mb-1">
+                    เงินฝาก/ตลาดเงิน
+                  </span>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="1"
+                      value={cash}
+                      onChange={(e) => {
+                        setCash(parseFloat(e.target.value) || 0);
+                        setPlanType('DIY');
+                        setPlanName('แผนผสมเอง (Member DIY)');
+                      }}
+                      className="w-full px-2.5 py-1.5 rounded-lg border border-emerald-300 dark:border-emerald-700 bg-white dark:bg-slate-800 text-xs font-bold text-slate-900 dark:text-white"
+                    />
+                    <span className="absolute right-2.5 top-1.5 text-xs text-slate-400 font-bold">%</span>
+                  </div>
+                  <span className="text-[10px] text-emerald-700/80 dark:text-emerald-400 mt-1 block">
+                    กระจายเข้าหมวด 1
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Total GPF Accumulated Balance & Look-Through Simulation Preview */}
+            <div className="pt-4 border-t border-slate-100 dark:border-slate-800 grid grid-cols-1 md:grid-cols-3 gap-5">
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block">
+                  ยอดเงินสะสม กบข. รวมปัจจุบัน (บาท):
+                </label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    step="100"
+                    value={gpfBalance || ''}
+                    onChange={(e) => setGpfBalance(parseFloat(e.target.value) || 0)}
+                    placeholder="เช่น 500000"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm font-bold text-slate-900 dark:text-white"
+                  />
+                  <span className="absolute right-3 top-2.5 text-xs text-slate-400 font-semibold">฿</span>
+                </div>
+                <p className="text-[11px] text-slate-500">
+                  อ้างอิงจากแอป My GPF หรือสลิปเงินเดือน (เมื่อบันทึกจะซิงค์เข้าสินทรัพย์ กบข. ทันที)
+                </p>
+              </div>
+
+              {/* Look-Through Allocation Preview */}
+              <div className="md:col-span-2 bg-slate-50 dark:bg-slate-800/60 p-4 rounded-xl border border-slate-200 dark:border-slate-700">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                    <Layers size={14} className="text-emerald-600" /> ผลการกระจายเข้าพอร์ตแบบ Look-Through (จากยอด ฿{formatCurrency(gpfBalance)}):
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('portfolio')}
+                    className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1"
+                  >
+                    ดูพอร์ตรวม 6 หมวด <ArrowRight size={12} />
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-3 gap-2 text-xs">
+                  <div className="bg-white dark:bg-slate-800 p-2.5 rounded-lg border border-slate-200/80 dark:border-slate-700">
+                    <div className="text-[11px] text-slate-500">หมวด 4. หุ้นไทย ({thaiStock}%)</div>
+                    <div className="text-sm font-bold text-amber-600 dark:text-amber-400 mt-0.5">
+                      ฿{formatCurrency((gpfBalance * thaiStock) / 100)}
+                    </div>
+                  </div>
+
+                  <div className="bg-white dark:bg-slate-800 p-2.5 rounded-lg border border-slate-200/80 dark:border-slate-700">
+                    <div className="text-[11px] text-slate-500">หมวด 5. หุ้น ตปท. ({foreignStock}%)</div>
+                    <div className="text-sm font-bold text-purple-600 dark:text-purple-400 mt-0.5">
+                      ฿{formatCurrency((gpfBalance * foreignStock) / 100)}
+                    </div>
+                  </div>
+
+                  <div className="bg-white dark:bg-slate-800 p-2.5 rounded-lg border border-slate-200/80 dark:border-slate-700">
+                    <div className="text-[11px] text-slate-500">หมวด 6. ทองคำ/อื่นๆ ({gold}%)</div>
+                    <div className="text-sm font-bold text-rose-600 dark:text-rose-400 mt-0.5">
+                      ฿{formatCurrency((gpfBalance * gold) / 100)}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* GPF Allowance Hero Card */}
           <div className="bg-gradient-to-r from-emerald-800 to-teal-900 text-white rounded-2xl p-6 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-6">
             <div>

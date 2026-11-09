@@ -9,6 +9,7 @@ import {
   TaxItem,
   UserProfile,
   PayrollDetails,
+  DEFAULT_GPF_PLAN,
 } from '@/types/wealth';
 import { APPLE_EPOCH_OFFSET_SECONDS } from '@/lib/wealthEngine';
 
@@ -506,7 +507,7 @@ function normalizeImportedData(raw: any): FullWealthDatabase {
   return {
     version: raw.version || 2,
     exportedAt: Date.now(),
-    profile: raw.profile || {
+    profile: {
       fullName: 'นายนิทัศน์ ปัญจะโรทัย',
       organization: 'สำนักงานสาธารณสุขจังหวัดนครนายก',
       rank: 'นักวิชาการสาธารณสุขชำนาญการ',
@@ -520,6 +521,8 @@ function normalizeImportedData(raw: any): FullWealthDatabase {
       targetForexPercent: 10,
       usdToThbRate: 36.5,
       isOnboarded: true,
+      ...(raw.profile || {}),
+      gpfPlan: raw.profile?.gpfPlan || DEFAULT_GPF_PLAN,
     },
     assets: raw.assets || [],
     liabilities: raw.liabilities || [],

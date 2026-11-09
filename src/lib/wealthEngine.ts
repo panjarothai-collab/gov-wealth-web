@@ -6,6 +6,8 @@ import {
   JournalEntry,
   TaxItem,
   UserProfile,
+  GpfPlanWeights,
+  DEFAULT_GPF_PLAN,
 } from '@/types/wealth';
 
 // Reference date for Apple Cocoa timestamp (2001-01-01 00:00:00 UTC)
@@ -81,6 +83,8 @@ export interface CategoryAllocation {
   shortName: string;
   color: string;
   currentValue: number;
+  directValue: number;
+  gpfDecomposedValue: number;
   actualPercent: number;
   targetPercent: number;
   diffPercent: number;
@@ -88,6 +92,13 @@ export interface CategoryAllocation {
   expectedReturnPercent: number;
   isToleranceExceeded: boolean; // Math.abs(diffPercent) > 5.0%
   dcaRecommendedAmount?: number;
+}
+
+export function isGpfAsset(a: Asset): boolean {
+  if (a.isGpf) return true;
+  const name = (a.name || '').toLowerCase();
+  const inst = (a.institution || '').toLowerCase();
+  return name.includes('กบข') || name.includes('gpf') || inst.includes('กบข') || inst.includes('gpf');
 }
 
 export interface PortfolioExpectedReturnInfo {
@@ -128,6 +139,8 @@ export function calculatePortfolioAllocation(
 ): {
   allocations: CategoryAllocation[];
   totalInvested: number;
+  totalGpfValue: number;
+  gpfPlan: GpfPlanWeights;
   expectedReturnInfo: PortfolioExpectedReturnInfo;
 } {
   const usdRate = profile.usdToThbRate || 36.5;
@@ -154,13 +167,36 @@ export function calculatePortfolioAllocation(
   };
 
   const monthlyDcaBudget = profile.monthlyDcaBudget || 10000;
+  const gpfPlan = profile.gpfPlan || DEFAULT_GPF_PLAN;
 
-  // 1. Initial Category Allocations
+  // Separate non-GPF assets vs GPF assets
+  const nonGpfAssets = assets.filter((a) => !isGpfAsset(a));
+  const gpfAssets = assets.filter((a) => isGpfAsset(a));
+
+  const totalGpfValue = gpfAssets.reduce((sum, a) => {
+    return sum + (a.isUSD ? (a.amountUSD || 0) * usdRate : (a.amountTHB || 0));
+  }, 0);
+
+  // GPF Look-Through Weight Map
+  const gpfWeightMap: Record<AssetCategory, number> = {
+    '1. เงินสดและเทียบเท่า': (gpfPlan.cashPercent || 0) / 100,
+    '2. กองทุนรวมไทย': (gpfPlan.thaiBondPercent || 0) / 100,
+    '3. กองทุนรวมต่างประเทศ': (gpfPlan.foreignBondPercent || 0) / 100,
+    '4. หุ้นไทย': (gpfPlan.thaiStockPercent || 0) / 100,
+    '5. หุ้นต่างประเทศ': (gpfPlan.foreignStockPercent || 0) / 100,
+    '6. พอร์ต FOREX และอื่นๆ': (gpfPlan.goldPercent || 0) / 100,
+  };
+
+  // 1. Initial Category Allocations with Look-Through Decomposition
   let rawAllocations = ASSET_CATEGORIES.map((meta) => {
-    const catAssets = assets.filter((a) => a.category === meta.key);
-    const currentValue = catAssets.reduce((sum, a) => {
+    const catDirectAssets = nonGpfAssets.filter((a) => a.category === meta.key);
+    const directValue = catDirectAssets.reduce((sum, a) => {
       return sum + (a.isUSD ? (a.amountUSD || 0) * usdRate : (a.amountTHB || 0));
     }, 0);
+
+    const gpfWeight = gpfWeightMap[meta.key] || 0;
+    const gpfDecomposedValue = Math.round(totalGpfValue * gpfWeight * 100) / 100;
+    const currentValue = directValue + gpfDecomposedValue;
 
     const actualPercent =
       totalInvested > 0 ? (currentValue / totalInvested) * 100 : 0;
@@ -176,6 +212,8 @@ export function calculatePortfolioAllocation(
       shortName: meta.shortName,
       color: meta.color,
       currentValue,
+      directValue,
+      gpfDecomposedValue,
       actualPercent,
       targetPercent,
       diffPercent,
@@ -238,7 +276,7 @@ export function calculatePortfolioAllocation(
     monthlyDcaBudget,
   };
 
-  return { allocations, totalInvested, expectedReturnInfo };
+  return { allocations, totalInvested, totalGpfValue, gpfPlan, expectedReturnInfo };
 }
 
 export interface TaxAssessmentResult {
