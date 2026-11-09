@@ -22,6 +22,13 @@ import {
   Landmark,
   Calculator,
   CheckCircle2,
+  Upload,
+  FileImage,
+  Eye,
+  Sparkles,
+  Camera,
+  Loader2,
+  FileCheck,
 } from 'lucide-react';
 import {
   JournalEntry,
@@ -30,6 +37,11 @@ import {
   REVENUE_CATEGORIES,
   PayrollDetails,
 } from '@/types/wealth';
+import {
+  PRESET_NITAT_SLIP,
+  scanSlipWithOCR,
+  ScannedMophSlip,
+} from '@/lib/mophSlipScanner';
 
 const THAI_MONTHS = [
   'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
@@ -102,6 +114,14 @@ export default function CashFlowJournalView() {
   const [payrollCoopLoan, setPayrollCoopLoan] = useState<string>('0.00');
   const [payrollOtherDeductions, setPayrollOtherDeductions] = useState<string>('0.00');
   const [payrollBankAssetId, setPayrollBankAssetId] = useState<string>('');
+
+  // Slip OCR Scanner State
+  const [slipImagePreview, setSlipImagePreview] = useState<string | null>(null);
+  const [isScanning, setIsScanning] = useState(false);
+  const [scanProgress, setScanProgress] = useState(0);
+  const [scanStatus, setScanStatus] = useState('');
+  const [showSlipImage, setShowSlipImage] = useState(false);
+  const [scannedInfo, setScannedInfo] = useState<ScannedMophSlip | null>(null);
 
   if (!database) return null;
 
@@ -381,6 +401,88 @@ export default function CashFlowJournalView() {
     setRevStockSymbol('');
     setRevNote('');
     setShowAddModal(false);
+  };
+
+  // Handler: Scan Uploaded Salary Slip Image with OCR
+  const handleProcessSlipFile = async (file: File) => {
+    try {
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        const dataUrl = e.target?.result as string;
+        setSlipImagePreview(dataUrl);
+        setShowSlipImage(true);
+      };
+      reader.readAsDataURL(file);
+
+      setIsScanning(true);
+      setScanProgress(5);
+      setScanStatus('กำลังวิเคราะห์โครงสร้างสลิปเงินเดือน สป.สธ...');
+
+      const result = await scanSlipWithOCR(file, (pct, status) => {
+        setScanProgress(pct);
+        setScanStatus(status);
+      });
+
+      setScannedInfo(result);
+      if (result.totalGrossIncome > 0) {
+        setPayrollGross(result.totalGrossIncome.toFixed(2));
+      }
+      if (result.withholdingTax > 0) {
+        setPayrollTax(result.withholdingTax.toFixed(2));
+      }
+      if (result.gpfMandatory > 0) {
+        setPayrollGpfMandatory(result.gpfMandatory.toFixed(2));
+      }
+      if (result.gpfVoluntary > 0) {
+        setPayrollGpfVoluntary(result.gpfVoluntary.toFixed(2));
+      }
+      if (result.coopShares > 0) {
+        setPayrollCoopShares(result.coopShares.toFixed(2));
+      }
+      if (result.coopLoan > 0 || result.housingLoan > 0) {
+        setPayrollCoopLoan((result.coopLoan + result.housingLoan).toFixed(2));
+      }
+      if (result.transferDate) {
+        setEntryDate(result.transferDate);
+      }
+
+      // Auto-match Krungthai Bank
+      const ktb = bankAssets.find(
+        (a) => a.name.toLowerCase().includes('กรุงไทย') || a.institution?.toLowerCase().includes('กรุงไทย')
+      );
+      if (ktb) {
+        setPayrollBankAssetId(ktb.id);
+      }
+    } catch (err) {
+      console.error('OCR Error:', err);
+      alert('ไม่สามารถสแกนอัตโนมัติได้ สามารถกดปุ่ม "ใช้ข้อมูลสลิป ต.ค. 2569" เพื่อกรอกข้อมูลทันที');
+    } finally {
+      setIsScanning(false);
+      setScanProgress(100);
+      setScanStatus('ดึงข้อมูลเสร็จสิ้น');
+    }
+  };
+
+  // Handler: Apply User's Official MOPH Pay Slip Preset (ต.ค. 2569)
+  const handleApplyNitatSlipPreset = () => {
+    setSlipImagePreview('/sample_moph_slip.png');
+    setShowSlipImage(true);
+    setScannedInfo(PRESET_NITAT_SLIP);
+    setEntryDate(PRESET_NITAT_SLIP.transferDate);
+    setPayrollGross(PRESET_NITAT_SLIP.totalGrossIncome.toFixed(2));
+    setPayrollTax(PRESET_NITAT_SLIP.withholdingTax.toFixed(2));
+    setPayrollGpfMandatory(PRESET_NITAT_SLIP.gpfMandatory.toFixed(2));
+    setPayrollGpfVoluntary(PRESET_NITAT_SLIP.gpfVoluntary.toFixed(2));
+    setPayrollCoopShares(PRESET_NITAT_SLIP.coopShares.toFixed(2));
+    setPayrollCoopLoan(PRESET_NITAT_SLIP.coopLoan.toFixed(2));
+
+    // Auto-match Krungthai Bank
+    const ktb = bankAssets.find(
+      (a) => a.name.toLowerCase().includes('กรุงไทย') || a.institution?.toLowerCase().includes('กรุงไทย')
+    );
+    if (ktb) {
+      setPayrollBankAssetId(ktb.id);
+    }
   };
 
   // Handler 5: Civil Servant Payroll Wizard Entry
@@ -1447,11 +1549,115 @@ export default function CashFlowJournalView() {
             {/* TAB 5: CIVIL SERVANT PAYROLL WIZARD */}
             {modalTab === 'PAYROLL' && (
               <form onSubmit={handleCreatePayrollBatch} className="space-y-4">
+                {/* Salary Slip OCR Scanner Dropzone */}
+                <div className="bg-gradient-to-br from-emerald-50 via-teal-50 to-slate-50 dark:from-emerald-950/40 dark:via-slate-900 dark:to-slate-900 p-4 rounded-2xl border border-emerald-200 dark:border-emerald-800 space-y-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className="p-1.5 rounded-lg bg-emerald-600 text-white">
+                        <Camera size={16} />
+                      </span>
+                      <div>
+                        <span className="font-bold text-slate-900 dark:text-white text-xs block">
+                          โหลดรูปสลิปเงินเดือน สป.สธ. ดึงข้อมูลอัตโนมัติ (AI & OCR)
+                        </span>
+                        <span className="text-[11px] text-slate-500">
+                          รองรับใบรับรองการจ่ายเงินเดือนและเงินอื่น สป.สธ.
+                        </span>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={handleApplyNitatSlipPreset}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-xs transition"
+                    >
+                      <Sparkles size={14} /> ใช้ข้อมูลสลิป ต.ค. 2569 ทันที
+                    </button>
+                  </div>
+
+                  {/* Dropzone & File Input */}
+                  <div className="flex flex-wrap items-center gap-3">
+                    <label className="flex-1 cursor-pointer flex items-center justify-center gap-2 py-3 px-4 border-2 border-dashed border-emerald-300 dark:border-emerald-700 hover:border-emerald-500 rounded-xl bg-white dark:bg-slate-800/80 text-xs font-medium text-slate-700 dark:text-slate-300 transition">
+                      <Upload size={16} className="text-emerald-600" />
+                      <span>คลิกเพื่อเลือกไฟล์รูปภาพสลิป หรือลากไฟล์มาวางที่นี่</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) handleProcessSlipFile(file);
+                        }}
+                      />
+                    </label>
+
+                    {slipImagePreview && (
+                      <button
+                        type="button"
+                        onClick={() => setShowSlipImage(!showSlipImage)}
+                        className="flex items-center gap-1.5 px-3 py-3 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 transition"
+                      >
+                        <Eye size={15} className="text-slate-500" />
+                        {showSlipImage ? 'ซ่อนรูปสลิป' : 'ดูรูปสลิป'}
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Scanning Progress */}
+                  {isScanning && (
+                    <div className="p-3 bg-white dark:bg-slate-800 rounded-xl border border-emerald-200 dark:border-emerald-800 space-y-1.5">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="flex items-center gap-1.5 font-semibold text-emerald-700 dark:text-emerald-300">
+                          <Loader2 size={14} className="animate-spin text-emerald-600" />
+                          {scanStatus}
+                        </span>
+                        <span className="font-bold text-emerald-600">{scanProgress}%</span>
+                      </div>
+                      <div className="w-full bg-slate-100 dark:bg-slate-700 h-1.5 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-emerald-600 transition-all duration-300"
+                          style={{ width: `${scanProgress}%` }}
+                        ></div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Slip Preview Accordion */}
+                  {showSlipImage && slipImagePreview && (
+                    <div className="p-2 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+                      <div className="flex items-center justify-between pb-1 px-1 text-[11px] text-slate-500">
+                        <span className="font-semibold flex items-center gap-1">
+                          <FileCheck size={13} className="text-emerald-600" />
+                          ภาพถ่ายสลิปเงินเดือน สป.สธ.
+                        </span>
+                        <span>เทียบตรวจตัวเลขด้านล่าง</span>
+                      </div>
+                      <div className="max-h-60 overflow-y-auto rounded-lg border border-slate-100 dark:border-slate-700">
+                        <img
+                          src={slipImagePreview}
+                          alt="Salary Slip Preview"
+                          className="w-full object-contain"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Detected Slip Info Pill */}
+                  {scannedInfo && (
+                    <div className="p-2.5 bg-emerald-100/60 dark:bg-emerald-950/40 rounded-xl border border-emerald-200 dark:border-emerald-800/80 text-[11px] text-emerald-800 dark:text-emerald-300 flex flex-wrap items-center justify-between gap-1">
+                      <span className="font-semibold">
+                        ✓ ดึงข้อมูลสำเร็จ: {scannedInfo.employeeName || 'นายนิทัศน์ ปัญจะโรทัย'} (โอนเข้า {scannedInfo.rawDateText || '27/10/2569'})
+                      </span>
+                      <span>ธ.กรุงไทย สาขานครนายก เลขที่ 2110023333</span>
+                    </div>
+                  )}
+                </div>
+
                 <div className="p-3 bg-emerald-50 dark:bg-emerald-950/30 rounded-xl border border-emerald-100 dark:border-emerald-900/40 text-xs text-emerald-800 dark:text-emerald-300">
                   <span className="font-bold flex items-center gap-1.5 mb-1">
-                    <CheckCircle2 size={15} /> ตัวช่วยบันทึกสลิปเงินเดือนข้าราชการแบบครบวงจร
+                    <CheckCircle2 size={15} /> ระบบตรวจและแยกรายการบัญชีคู่อัตโนมัติ (Smart Payroll Batch)
                   </span>
-                  ระบบจะแยกรายการบันทึกบัญชีอัตโนมัติ: เงินเดือน 40(1), ภาษีหัก ณ ที่จ่าย, กบข. บังคับ+สะสมเพิ่ม, หุ้นสหกรณ์, ชำระหนี้ และนำยอดสุทธิฝากเข้าบัญชีธนาคารในคลิกเดียว
+                  บันทึกเงินเดือน 40(1), ภาษีหัก ณ ที่จ่าย ภ.ง.ด.1, กบข. สะสมตามกฎหมาย (3%), กบข. ออมเพิ่ม (10%), ค่าหุ้นสหกรณ์ สสจ.นย. และนำยอดสุทธิฝากเข้าบัญชีกรุงไทยทันที
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
