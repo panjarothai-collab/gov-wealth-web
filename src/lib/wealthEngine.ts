@@ -139,6 +139,8 @@ export function calculatePortfolioAllocation(
 export interface TaxAssessmentResult {
   salaryAnnual: number;
   dividendGross: number;
+  dividendWithheld: number;
+  dividendNetReceived: number;
   totalGrossIncome: number;
   standardExpenseDeduction: number;
   personalAllowance: number;
@@ -356,9 +358,13 @@ export function calculateTaxAssessment(
     };
   }
 
+  const dividendNetReceived = Math.max(0, dividendGross - dividendWithheld);
+
   return {
     salaryAnnual,
     dividendGross,
+    dividendWithheld,
+    dividendNetReceived,
     totalGrossIncome,
     standardExpenseDeduction,
     personalAllowance,
