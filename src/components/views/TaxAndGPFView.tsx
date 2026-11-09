@@ -16,12 +16,20 @@ import {
   AlertTriangle,
   HelpCircle,
   FileText,
+  Calculator,
+  Sliders,
+  Sparkles,
+  ArrowRight,
 } from 'lucide-react';
 
 export default function TaxAndGPFView() {
   const { database } = useWealth();
   const [includeDividends, setIncludeDividends] = useState(true);
-  const [activeSubTab, setActiveSubTab] = useState<'summary' | 'gpf' | 'brackets'>('summary');
+  const [activeSubTab, setActiveSubTab] = useState<'summary' | 'gpf' | 'simulator' | 'brackets'>('summary');
+
+  // Interactive Tax Simulation state
+  const [simThaiEsg, setSimThaiEsg] = useState<number>(0);
+  const [simRmfGpfExtra, setSimRmfGpfExtra] = useState<number>(0);
 
   if (!database) return null;
 
@@ -36,6 +44,15 @@ export default function TaxAndGPFView() {
     (t) => t.deductionType === 'กบข.' || t.fundCode.toLowerCase().includes('gpf')
   );
 
+  const dividendEntries = database.journalEntries.filter(
+    (e) => e.grossDividendAmount && e.grossDividendAmount > 0
+  );
+
+  // Simulation calculations
+  const marginalRate = (taxResult.marginalTaxRatePercent || 0) / 100;
+  const simTotalDeduction = simThaiEsg + simRmfGpfExtra;
+  const simTaxSavings = simTotalDeduction * marginalRate;
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -43,15 +60,15 @@ export default function TaxAndGPFView() {
         <div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
             <Receipt className="text-emerald-600" size={24} />
-            การวางแผนภาษี & สิทธิ กบข. / RMF / ThaiESG
+            การวางแผนภาษี & สิทธิ กบข. / ThaiESG / เครดิตปันผล
           </h1>
           <p className="text-sm text-slate-500 mt-1">
-            คำนวณภาษีเงินได้บุคคลธรรมดา ภ.ง.ด. ๙๐/๙๑ ประจำปี พ.ศ. ๒๕๖๙ แบบอัตราก้าวหน้า
+            คำนวณภาษีเงินได้บุคคลธรรมดา ภ.ง.ด. ๙๐/๙๑ ประจำปี พ.ศ. ๒๕๖๙ พร้อมระบบเปรียบเทียบสิทธิเงินปันผล Side-by-Side
           </p>
         </div>
 
         {/* Sub-tabs */}
-        <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl text-xs font-semibold">
+        <div className="flex flex-wrap bg-slate-100 dark:bg-slate-800 p-1 rounded-xl text-xs font-semibold">
           <button
             onClick={() => setActiveSubTab('summary')}
             className={`px-3 py-1.5 rounded-lg transition ${
@@ -61,6 +78,16 @@ export default function TaxAndGPFView() {
             }`}
           >
             สรุปภาษี & ปันผล
+          </button>
+          <button
+            onClick={() => setActiveSubTab('simulator')}
+            className={`px-3 py-1.5 rounded-lg transition flex items-center gap-1 ${
+              activeSubTab === 'simulator'
+                ? 'bg-white dark:bg-slate-700 text-emerald-600 dark:text-emerald-400 shadow-xs'
+                : 'text-slate-500 hover:text-slate-900'
+            }`}
+          >
+            <Sparkles size={13} /> ตัวจำลองลดหย่อน
           </button>
           <button
             onClick={() => setActiveSubTab('gpf')}
@@ -93,11 +120,11 @@ export default function TaxAndGPFView() {
               <div className="flex items-center gap-2">
                 <span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
                 <h3 className="font-bold text-slate-900 dark:text-white text-base">
-                  ปันผล & เครดิตภาษี (มาตรา ๔๗ ทวิ)
+                  เงินปันผลหุ้นไทย & เครดิตภาษี (มาตรา ๔๗ ทวิ)
                 </h3>
               </div>
-              <span className="text-xs bg-slate-100 dark:bg-slate-800 px-2.5 py-1 rounded-full text-slate-600 dark:text-slate-300">
-                ๑ รายการบันทึก
+              <span className="text-xs bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 font-semibold px-2.5 py-1 rounded-full border border-emerald-200 dark:border-emerald-900">
+                {dividendEntries.length} รายการบันทึก
               </span>
             </div>
 
@@ -105,43 +132,111 @@ export default function TaxAndGPFView() {
               <div className="bg-slate-50 dark:bg-slate-800/50 p-3.5 rounded-xl border border-slate-100 dark:border-slate-800">
                 <span className="text-xs text-slate-500">๑. เงินปันผลรวม (Gross)</span>
                 <div className="text-lg font-bold text-slate-900 dark:text-white mt-1">
-                  {formatCurrency(taxResult.dividendGross > 0 ? taxResult.dividendGross : 2800)} ฿
+                  {formatCurrency(taxResult.dividendGross)} ฿
                 </div>
               </div>
 
               <div className="bg-slate-50 dark:bg-slate-800/50 p-3.5 rounded-xl border border-slate-100 dark:border-slate-800">
                 <span className="text-xs text-slate-500">๒. หัก ณ ที่จ่าย ๑๐%</span>
                 <div className="text-lg font-bold text-rose-600 dark:text-rose-400 mt-1">
-                  280.00 ฿
+                  {formatCurrency(taxResult.dividendWithheld)} ฿
                 </div>
               </div>
 
               <div className="bg-slate-50 dark:bg-slate-800/50 p-3.5 rounded-xl border border-slate-100 dark:border-slate-800">
-                <span className="text-xs text-slate-500">๓. รับสุทธิเข้าบัญชี</span>
+                <span className="text-xs text-slate-500">๓. รับสุทธิเข้าบัญชี (Net)</span>
                 <div className="text-lg font-bold text-emerald-600 dark:text-emerald-400 mt-1">
-                  2,520.00 ฿
+                  {formatCurrency(taxResult.dividendNetReceived)} ฿
                 </div>
               </div>
 
               <div className="bg-slate-50 dark:bg-slate-800/50 p-3.5 rounded-xl border border-slate-100 dark:border-slate-800">
                 <span className="text-xs text-slate-500">๔. เครดิตภาษี ม.๔๗ ทวิ</span>
                 <div className="text-lg font-bold text-blue-600 dark:text-blue-400 mt-1">
-                  {formatCurrency(taxResult.dividendTaxCredit > 0 ? taxResult.dividendTaxCredit : 700)} ฿
+                  {formatCurrency(taxResult.dividendTaxCredit)} ฿
                 </div>
               </div>
             </div>
 
+            {/* Side-by-Side Dividend Advisor Card */}
+            {taxResult.dividendComparison ? (
+              <div className="mt-4 p-5 rounded-2xl bg-gradient-to-br from-emerald-50 via-teal-50 to-slate-50 dark:from-emerald-950/30 dark:via-slate-900 dark:to-slate-900 border border-emerald-200 dark:border-emerald-800/60 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="p-1.5 rounded-lg bg-emerald-600 text-white">
+                      <Calculator size={16} />
+                    </span>
+                    <span className="font-bold text-slate-900 dark:text-white text-sm">
+                      ผลการวิเคราะห์เปรียบเทียบ: ยื่นรวม vs ไม่รวมยื่น (Side-by-Side Advisor)
+                    </span>
+                  </div>
+                  <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${
+                    taxResult.dividendComparison.recommendInclude
+                      ? 'bg-emerald-600 text-white'
+                      : 'bg-amber-600 text-white'
+                  }`}>
+                    {taxResult.dividendComparison.recommendInclude ? '✓ แนะนำยื่นรวม' : '✓ แนะนำแยกยื่น (Final Tax)'}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Option A */}
+                  <div className={`p-4 rounded-xl border ${
+                    taxResult.dividendComparison.recommendInclude
+                      ? 'bg-white dark:bg-slate-800 border-emerald-500 ring-2 ring-emerald-500/20'
+                      : 'bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700'
+                  }`}>
+                    <div className="text-xs font-semibold text-slate-500 mb-1">
+                      ทางเลือกที่ ๑: นำเงินปันผลมารวมยื่นแบบ (ภ.ง.ด. ๙๐)
+                    </div>
+                    <div className="text-lg font-extrabold text-emerald-600 dark:text-emerald-400">
+                      {taxResult.dividendComparison.withDividendsRefund < 0
+                        ? `ได้รับคืนภาษี ฿${formatCurrency(Math.abs(taxResult.dividendComparison.withDividendsRefund))}`
+                        : `ต้องชำระภาษี ฿${formatCurrency(taxResult.dividendComparison.withDividendsRefund)}`}
+                    </div>
+                    <p className="text-[11px] text-slate-500 mt-1">
+                      ดึงเครดิตภาษี ม.๔๗ ทวิ คืน + ขอคืนภาษีหัก ณ ที่จ่าย ๑๐%
+                    </p>
+                  </div>
+
+                  {/* Option B */}
+                  <div className={`p-4 rounded-xl border ${
+                    !taxResult.dividendComparison.recommendInclude
+                      ? 'bg-white dark:bg-slate-800 border-emerald-500 ring-2 ring-emerald-500/20'
+                      : 'bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700'
+                  }`}>
+                    <div className="text-xs font-semibold text-slate-500 mb-1">
+                      ทางเลือกที่ ๒: ไม่นำมารวมยื่น (ใช้สิทธิ์ Final Tax ๑๐%)
+                    </div>
+                    <div className="text-lg font-extrabold text-slate-700 dark:text-slate-300">
+                      {taxResult.dividendComparison.withoutDividendsRefund < 0
+                        ? `ได้รับคืนภาษี ฿${formatCurrency(Math.abs(taxResult.dividendComparison.withoutDividendsRefund))}`
+                        : `ต้องชำระภาษี ฿${formatCurrency(taxResult.dividendComparison.withoutDividendsRefund)}`}
+                    </div>
+                    <p className="text-[11px] text-slate-500 mt-1">
+                      ปล่อยให้หัก ณ ที่จ่าย ๑๐% เป็นภาษีงวดสุดท้าย ไม่กระทบฐานภาษี
+                    </p>
+                  </div>
+                </div>
+
+                <div className="p-3 bg-white/80 dark:bg-slate-800/80 rounded-xl border border-emerald-200/60 dark:border-emerald-800/40 text-xs text-slate-700 dark:text-slate-300 flex items-start gap-2">
+                  <CheckCircle2 size={16} className="text-emerald-600 shrink-0 mt-0.5" />
+                  <div>
+                    <span className="font-bold text-emerald-800 dark:text-emerald-300">คำแนะนำวิชาการ: </span>
+                    {taxResult.dividendComparison.recommendationText}
+                  </div>
+                </div>
+              </div>
+            ) : null}
+
             {/* Toggle switch for dividend inclusion */}
-            <div className="flex items-center justify-between p-4 bg-emerald-50/50 dark:bg-emerald-950/20 rounded-xl border border-emerald-100 dark:border-emerald-900">
+            <div className="flex items-center justify-between p-4 bg-emerald-50/50 dark:bg-emerald-950/20 rounded-xl border border-emerald-100 dark:border-emerald-900 mt-4">
               <div>
                 <div className="text-sm font-semibold text-slate-900 dark:text-white">
-                  นำเงินปันผลมารวมคำนวณภาษีปลายปี (ภ.ง.ด. ๙๐)
+                  เปิดใช้นำเงินปันผลมารวมคำนวณภาษีในการประเมินนี้ (ภ.ง.ด. ๙๐)
                 </div>
                 <div className="text-xs text-slate-500 mt-0.5">
-                  สูตร Gross-up ตาม ม.๔๗ ทวิ รวมสิทธิขอคืนภาษีทั้งสิ้น:{' '}
-                  <span className="font-bold text-emerald-600">
-                    {formatCurrency(280 + (taxResult.dividendTaxCredit > 0 ? taxResult.dividendTaxCredit : 700))} ฿
-                  </span>
+                  สูตร Gross-up ตาม ม.๔๗ ทวิ เครดิตภาษี: +฿{formatCurrency(taxResult.dividendTaxCredit)}
                 </div>
               </div>
 
@@ -204,18 +299,122 @@ export default function TaxAndGPFView() {
             </div>
 
             {/* Income & Deduction Breakdown row */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4 pt-4 border-t border-slate-100 dark:border-slate-800 text-xs">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mt-4 pt-4 border-t border-slate-100 dark:border-slate-800 text-xs">
               <div className="flex justify-between p-3 bg-slate-50 dark:bg-slate-800 rounded-xl">
                 <span className="text-slate-500">เงินได้พึงประเมินรวม:</span>
                 <span className="font-bold text-slate-900 dark:text-white">{formatCurrency(taxResult.totalGrossIncome)} ฿</span>
               </div>
               <div className="flex justify-between p-3 bg-slate-50 dark:bg-slate-800 rounded-xl">
-                <span className="text-slate-500">หักค่าใช้จ่าย + ลดหย่อนรวม:</span>
-                <span className="font-bold text-emerald-600">-{formatCurrency(taxResult.totalDeductions)} ฿</span>
+                <span className="text-slate-500">ลดหย่อน กบข. ({taxResult.gpfItemsCount} งวด):</span>
+                <span className="font-bold text-emerald-600">-{formatCurrency(taxResult.gpfDeduction)} ฿</span>
+              </div>
+              <div className="flex justify-between p-3 bg-slate-50 dark:bg-slate-800 rounded-xl">
+                <span className="text-slate-500">ลดหย่อน ThaiESG:</span>
+                <span className="font-bold text-emerald-600">-{formatCurrency(taxResult.thaiEsgDeduction)} ฿</span>
               </div>
               <div className="flex justify-between p-3 bg-slate-50 dark:bg-slate-800 rounded-xl">
                 <span className="text-slate-500">เงินได้สุทธิคำนวณภาษี:</span>
                 <span className="font-bold text-slate-900 dark:text-white">{formatCurrency(taxResult.netTaxableIncome)} ฿</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* SUB-TAB: TAX SIMULATOR */}
+      {activeSubTab === 'simulator' && (
+        <div className="space-y-6">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 border border-slate-200 dark:border-slate-800 shadow-xs space-y-6">
+            <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
+              <div>
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <Sliders className="text-emerald-600" size={20} />
+                  ตัวจำลองการวางแผนลดหย่อนภาษีเชิงรุก (Proactive Tax Deduction Optimizer)
+                </h3>
+                <p className="text-xs text-slate-500 mt-1">
+                  ทดสอบการซื้อ ThaiESG หรือเพิ่มเงินออม กบข. / RMF เพื่อดูยอดภาษีประหยัดได้ตามฐานภาษีจริงของคุณ
+                </p>
+              </div>
+
+              <div className="bg-emerald-50 dark:bg-emerald-950/40 px-3 py-1.5 rounded-xl border border-emerald-200 dark:border-emerald-800 text-xs">
+                <span className="text-slate-500">ฐานภาษีขั้นสูงสุดปัจจุบัน: </span>
+                <span className="font-bold text-emerald-700 dark:text-emerald-300">
+                  {taxResult.marginalTaxRatePercent}%
+                </span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Slider 1: ThaiESG */}
+              <div className="space-y-3 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700">
+                <div className="flex justify-between items-center text-xs">
+                  <span className="font-bold text-slate-900 dark:text-white flex items-center gap-1">
+                    🌿 ลงทุน ThaiESG เพิ่มเติม
+                  </span>
+                  <span className="text-emerald-600 font-bold text-sm">
+                    ฿{formatCurrency(simThaiEsg)}
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min="0"
+                  max="300000"
+                  step="5000"
+                  value={simThaiEsg}
+                  onChange={(e) => setSimThaiEsg(parseFloat(e.target.value))}
+                  className="w-full accent-emerald-600 cursor-pointer"
+                />
+                <div className="flex justify-between text-[11px] text-slate-400">
+                  <span>0 ฿</span>
+                  <span>เพดานกฎหมาย 300,000 ฿ (ไม่เกิน 30% ของเงินได้)</span>
+                </div>
+              </div>
+
+              {/* Slider 2: GPF / RMF */}
+              <div className="space-y-3 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700">
+                <div className="flex justify-between items-center text-xs">
+                  <span className="font-bold text-slate-900 dark:text-white flex items-center gap-1">
+                    🛡️ ออมเพิ่ม กบข. / RMF เพิ่มเติม
+                  </span>
+                  <span className="text-emerald-600 font-bold text-sm">
+                    ฿{formatCurrency(simRmfGpfExtra)}
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min="0"
+                  max={Math.max(0, 500000 - taxResult.gpfDeduction)}
+                  step="5000"
+                  value={simRmfGpfExtra}
+                  onChange={(e) => setSimRmfGpfExtra(parseFloat(e.target.value))}
+                  className="w-full accent-emerald-600 cursor-pointer"
+                />
+                <div className="flex justify-between text-[11px] text-slate-400">
+                  <span>0 ฿</span>
+                  <span>สิทธิ์คงเหลือ: ฿{formatCurrency(Math.max(0, 500000 - taxResult.gpfDeduction))}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Simulation Result Card */}
+            <div className="p-5 bg-gradient-to-r from-emerald-600 to-teal-700 text-white rounded-2xl flex flex-col md:flex-row items-center justify-between gap-4 shadow-sm">
+              <div>
+                <div className="text-xs text-emerald-100 flex items-center gap-1">
+                  <Sparkles size={14} /> ผลลัพธ์จากการวางแผนลดหย่อนภาษี
+                </div>
+                <div className="text-2xl font-black mt-1">
+                  ประหยัดภาษีทันที ฿{formatCurrency(simTaxSavings)}
+                </div>
+                <p className="text-xs text-emerald-100/90 mt-0.5">
+                  จากยอดลดหย่อนเพิ่มเติมรวม ฿{formatCurrency(simTotalDeduction)} (ที่ฐานภาษี {taxResult.marginalTaxRatePercent}%)
+                </p>
+              </div>
+
+              <div className="bg-white/10 backdrop-blur-xs p-3.5 rounded-xl border border-white/20 text-right">
+                <span className="text-[11px] text-emerald-200">ภาษีสุทธิหลังวางแผนลดหย่อน</span>
+                <div className="text-xl font-bold">
+                  ฿{formatCurrency(Math.max(0, taxResult.computedTax - simTaxSavings))}
+                </div>
               </div>
             </div>
           </div>
@@ -234,12 +433,12 @@ export default function TaxAndGPFView() {
                 {formatCurrency(taxResult.gpfDeduction)} <span className="text-lg font-normal text-emerald-200">฿</span>
               </h2>
               <p className="text-xs text-emerald-200/80 mt-1">
-                สะสมตามกฎหมาย ๓% + ออมเพิ่ม ๑๐% (รวม {gpfItems.length} รายการ ม.ค. – ก.ย. ๒๕๖๙)
+                สะสมตามกฎหมาย ๓% + ออมเพิ่ม (รวม {gpfItems.length} รายการบันทึก)
               </p>
             </div>
 
             <div className="bg-white/10 backdrop-blur-xs p-4 rounded-xl border border-white/20 text-right">
-              <span className="text-xs text-emerald-200">เพดานสิทธิ์ กบข. ตามกฎหมาย</span>
+              <span className="text-xs text-emerald-200">เพดานสิทธิ์ กบข. ตามกฎหมาย (๓๐% ไม่เกิน ๕ แสน)</span>
               <div className="text-xl font-bold">500,000.00 ฿</div>
               <span className="text-[11px] text-emerald-300">
                 เหลือสิทธิ์เพิ่มเติม: {formatCurrency(500000 - taxResult.gpfDeduction)} ฿
@@ -247,10 +446,10 @@ export default function TaxAndGPFView() {
             </div>
           </div>
 
-          {/* GPF Breakdown Table (The 18 items) */}
+          {/* GPF Breakdown Table */}
           <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 border border-slate-200 dark:border-slate-800 shadow-xs">
             <h3 className="font-bold text-slate-900 dark:text-white text-base mb-4">
-              ประวัติรายการหักลดหย่อน กบข. รายเดือน ({gpfItems.length} รายการ)
+              ประวัติรายการหักลดหย่อน กบข. ({gpfItems.length} รายการ)
             </h3>
 
             <div className="overflow-x-auto">
@@ -304,7 +503,7 @@ export default function TaxAndGPFView() {
           <div className="flex items-center justify-between mb-4">
             <div>
               <h3 className="font-bold text-slate-900 dark:text-white text-base">
-                อัตราภาษีเงินได้บุคคลธรรมดาแบบขั้นบันได
+                อัตราภาษีเงินได้บุคคลธรรมดาแบบขั้นบันได (ภ.ง.ด. ๙๐/๙๑)
               </h3>
               <p className="text-xs text-slate-500 mt-0.5">
                 ฐานเงินได้สุทธิคำนวณภาษี: <span className="font-bold text-slate-900 dark:text-white">{formatCurrency(taxResult.netTaxableIncome)} ฿</span>

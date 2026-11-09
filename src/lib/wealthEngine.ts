@@ -144,6 +144,7 @@ export interface TaxAssessmentResult {
   personalAllowance: number;
   gpfDeduction: number;
   gpfItemsCount: number;
+  thaiEsgDeduction: number;
   otherDeductions: number;
   totalDeductions: number;
   netTaxableIncome: number;
@@ -157,6 +158,14 @@ export interface TaxAssessmentResult {
     amountInBracket: number;
     tax: number;
   }[];
+  marginalTaxRatePercent: number;
+  dividendComparison?: {
+    withDividendsRefund: number;
+    withoutDividendsRefund: number;
+    advantageAmount: number;
+    recommendInclude: boolean;
+    recommendationText: string;
+  };
 }
 
 export function calculateTaxAssessment(
@@ -217,13 +226,25 @@ export function calculateTaxAssessment(
   );
   const gpfItemsCount = gpfItems.length;
   const gpfTotalDeduction = gpfItems.reduce((sum, t) => sum + t.amount, 0);
-  // Cap at 15% of salary, max 500,000 THB
-  const gpfCap = Math.min(salaryAnnual * 0.15, 500000);
+  // Cap at 30% of salary, max 500,000 THB (พ.ศ. ๒๕๖๙)
+  const gpfCap = Math.min(salaryAnnual * 0.30, 500000);
   const gpfDeduction = Math.min(gpfTotalDeduction, gpfCap);
+
+  // Thai ESG Deductions (Up to 30% of salary, max 300,000 THB)
+  const thaiEsgItems = taxItems.filter(
+    (t) => t.deductionType === 'ThaiESG' || t.fundCode.toLowerCase().includes('thaiesg')
+  );
+  const thaiEsgTotal = thaiEsgItems.reduce((sum, t) => sum + t.amount, 0);
+  const thaiEsgCap = Math.min(salaryAnnual * 0.30, 300000);
+  const thaiEsgDeduction = Math.min(thaiEsgTotal, thaiEsgCap);
 
   // Other tax items
   const otherItems = taxItems.filter(
-    (t) => t.deductionType !== 'กบข.' && !t.fundCode.toLowerCase().includes('gpf')
+    (t) =>
+      t.deductionType !== 'กบข.' &&
+      t.deductionType !== 'ThaiESG' &&
+      !t.fundCode.toLowerCase().includes('gpf') &&
+      !t.fundCode.toLowerCase().includes('thaiesg')
   );
   const otherDeductions = otherItems.reduce((sum, t) => sum + t.amount, 0);
 
@@ -231,6 +252,7 @@ export function calculateTaxAssessment(
     standardExpenseDeduction +
     personalAllowance +
     gpfDeduction +
+    thaiEsgDeduction +
     otherDeductions;
 
   const netTaxableIncome = Math.max(0, totalGrossIncome - totalDeductions);
@@ -249,6 +271,7 @@ export function calculateTaxAssessment(
 
   let remainingTaxable = netTaxableIncome;
   let computedTax = 0;
+  let marginalTaxRatePercent = 0;
   const taxBracketBreakdown = [];
 
   for (const b of brackets) {
@@ -266,6 +289,7 @@ export function calculateTaxAssessment(
     const taxInChunk = chunk * b.rate;
     computedTax += taxInChunk;
     remainingTaxable -= chunk;
+    marginalTaxRatePercent = Math.round(b.rate * 100);
 
     taxBracketBreakdown.push({
       bracket: b.label,
@@ -276,7 +300,6 @@ export function calculateTaxAssessment(
   }
 
   // 5. Withholding tax
-  // Extract withholding tax from journal or default estimation
   const taxWithheldFromJournal = journalEntries
     .filter((e) => e.title.includes('ภาษีหัก') || e.withholdingTaxAmount)
     .reduce(
@@ -285,10 +308,53 @@ export function calculateTaxAssessment(
     );
 
   const taxPaidWithheld =
-    taxWithheldFromJournal > 0 ? taxWithheldFromJournal : 6602.84; // Matches recorded amount
+    taxWithheldFromJournal > 0 ? taxWithheldFromJournal : 0;
 
   const netTaxPayableOrRefund =
-    computedTax - taxPaidWithheld - dividendTaxCredit;
+    computedTax - taxPaidWithheld - (includeDividendsInAssessment ? dividendTaxCredit : 0);
+
+  // 6. Side-by-Side Dividend Comparison Calculation
+  let dividendComparison: TaxAssessmentResult['dividendComparison'] = undefined;
+  if (dividendGross > 0) {
+    // Calculate scenario without dividends
+    const taxableNoDiv = Math.max(0, salaryAnnual - totalDeductions);
+    let remNoDiv = taxableNoDiv;
+    let taxNoDiv = 0;
+    for (const b of brackets) {
+      if (remNoDiv <= 0) break;
+      const c = Math.min(remNoDiv, b.limit);
+      taxNoDiv += c * b.rate;
+      remNoDiv -= c;
+    }
+    const refundNoDiv = taxNoDiv - taxPaidWithheld;
+
+    // Calculate scenario with dividends
+    const taxableWithDiv = Math.max(0, salaryAnnual + dividendGross + dividendTaxCredit - totalDeductions);
+    let remWithDiv = taxableWithDiv;
+    let taxWithDiv = 0;
+    for (const b of brackets) {
+      if (remWithDiv <= 0) break;
+      const c = Math.min(remWithDiv, b.limit);
+      taxWithDiv += c * b.rate;
+      remWithDiv -= c;
+    }
+    // Withholding tax for dividend (10%) is already paid and credited
+    const refundWithDiv = taxWithDiv - taxPaidWithheld - dividendTaxCredit - dividendWithheld;
+
+    // Advantage amount (negative means refund is greater)
+    const advantageAmount = Math.abs(refundNoDiv - refundWithDiv);
+    const recommendInclude = refundWithDiv < refundNoDiv; // refundWithDiv is more negative (bigger refund) or smaller tax
+
+    dividendComparison = {
+      withDividendsRefund: refundWithDiv,
+      withoutDividendsRefund: refundNoDiv,
+      advantageAmount,
+      recommendInclude,
+      recommendationText: recommendInclude
+        ? `แนะนำให้นำเงินปันผลมารวมคำนวณภาษี เพราะฐานภาษีของท่าน (${marginalTaxRatePercent}%) ต่ำกว่าอัตราภาษีนิติบุคคล จะได้รับเงินคืนภาษีเพิ่มขึ้น ฿${advantageAmount.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+        : `แนะนำไม่นำเงินปันผลมารวมคำนวณ (เลือก Final Tax ๑๐%) เพราะประหยัดภาษีกว่า ฿${advantageAmount.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+    };
+  }
 
   return {
     salaryAnnual,
@@ -298,6 +364,7 @@ export function calculateTaxAssessment(
     personalAllowance,
     gpfDeduction,
     gpfItemsCount,
+    thaiEsgDeduction,
     otherDeductions,
     totalDeductions,
     netTaxableIncome,
@@ -306,5 +373,7 @@ export function calculateTaxAssessment(
     dividendTaxCredit,
     netTaxPayableOrRefund,
     taxBracketBreakdown,
+    marginalTaxRatePercent,
+    dividendComparison,
   };
 }

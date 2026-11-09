@@ -84,10 +84,42 @@ export interface Liability {
 
 export type JournalType = 'รับเงิน (รายได้)' | 'จ่ายเงิน (ค่าใช้จ่าย)' | 'โอนเงิน';
 
+export type SmartTransactionType =
+  | 'STANDARD'
+  | 'CREDIT_CARD_SPEND'
+  | 'CREDIT_CARD_PAYMENT'
+  | 'INVESTMENT_BUY'
+  | 'PAYROLL';
+
+export const REVENUE_CATEGORIES = [
+  { id: '40(1)', name: '๔๐(๑) เงินเดือน, ค่าจ้าง, โบนัส, เบี้ยเลี้ยง', shortName: '๔๐(๑) เงินเดือน' },
+  { id: '40(2)', name: '๔๐(๒) ค่าตอบแทน, เบี้ยประชุม, ค่านายหน้า', shortName: '๔๐(๒) ค่าตอบแทน' },
+  { id: '40(3)', name: '๔๐(๓) ค่าลิขสิทธิ์, ค่ากู๊ดวิลล์, สิทธิบัตร', shortName: '๔๐(๓) ลิขสิทธิ์' },
+  { id: '40(4)(a)', name: '๔๐(๔)(ก) ดอกเบี้ยเงินฝาก, พันธบัตร, หุ้นกู้', shortName: '๔๐(๔)(ก) ดอกเบี้ย' },
+  { id: '40(4)(b)', name: '๔๐(๔)(ข) เงินปันผลหุ้นไทย / กองทุนรวม (มีเครดิตภาษี ม.๔๗ ทวิ)', shortName: '๔๐(๔)(ข) ปันผลหุ้นไทย' },
+  { id: '40(5)', name: '๔๐(๕) เงินได้จากการให้เช่าทรัพย์สิน, บ้าน, ที่ดิน', shortName: '๔๐(๕) ค่าเช่า' },
+  { id: '40(6)', name: '๔๐(๖) วิชาชีพอิสระ (ประกอบโรคศิลปะ, กฎหมาย, บัญชี)', shortName: '๔๐(๖) วิชาชีพอิสระ' },
+  { id: '40(7)', name: '๔๐(๗) เงินได้จากการรับเหมาจัดหาสัมภาระ', shortName: '๔๐(๗) รับเหมา' },
+  { id: '40(8)', name: '๔๐(๘) ธุรกิจ, การพาณิชย์, เงินปันผลกองทุนอสังหาฯ', shortName: '๔๐(๘) ธุรกิจ/อื่นๆ' },
+] as const;
+
+export interface PayrollDetails {
+  grossSalary: number;
+  withholdingTax: number;
+  gpfMandatory: number;
+  gpfVoluntary: number;
+  coopSavingShare: number;
+  coopLoanPayment: number;
+  otherDeductions: number;
+  netSalary: number;
+  depositAssetId?: string;
+}
+
 export interface JournalEntry {
   id: string;
   date: string; // ISO string or YYYY-MM-DD
   type: JournalType;
+  smartType?: SmartTransactionType;
   title: string;
   amount: number;
   debitAccountName: string;
@@ -99,6 +131,9 @@ export interface JournalEntry {
   dividendTaxCreditAmount?: number;
   corporateTaxRatePercent?: number;
   stockSymbol?: string;
+  sourceAssetId?: string;
+  targetAssetId?: string;
+  targetLiabilityId?: string;
   destinationAssetID?: string;
   note?: string;
 }
