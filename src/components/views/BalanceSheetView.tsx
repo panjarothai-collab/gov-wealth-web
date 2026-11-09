@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { useWealth } from '@/context/WealthContext';
 import {
   calculateNetWorth,
+  calculatePortfolioAllocation,
   formatCurrency,
 } from '@/lib/wealthEngine';
 import { calculateFinancialHealth } from '@/lib/financialHealthEngine';
@@ -28,7 +29,7 @@ import {
 import { Asset, AssetCategory, ASSET_CATEGORIES, Liability } from '@/types/wealth';
 
 export default function BalanceSheetView() {
-  const { database, addAsset, deleteAsset, addLiability, deleteLiability, setActiveTab } = useWealth();
+  const { database, addAsset, updateAsset, deleteAsset, addLiability, deleteLiability, setActiveTab } = useWealth();
   const [showAddAsset, setShowAddAsset] = useState(false);
   const [showAddLiability, setShowAddLiability] = useState(false);
 
@@ -64,6 +65,49 @@ export default function BalanceSheetView() {
     { name: 'สินทรัพย์รวม', value: totalAssets, color: '#059669' }, // Emerald-600
     { name: 'หนี้สินรวม', value: totalLiabilities, color: '#EF4444' }, // Red-500
   ];
+
+  const { allocations, totalGpfValue, gpfPlan } = calculatePortfolioAllocation(
+    database.assets,
+    database.profile
+  );
+
+  const existingGpfAsset = database.assets.find(
+    (a) => a.isGpf || a.name.toLowerCase().includes('กบข') || a.institution.toLowerCase().includes('กบข')
+  );
+
+  const [showQuickGpfModal, setShowQuickGpfModal] = useState(false);
+  const [quickGpfAmount, setQuickGpfAmount] = useState(
+    existingGpfAsset?.amountTHB ? String(existingGpfAsset.amountTHB) : ''
+  );
+
+  // Total GPF deductions in taxItems (e.g. from payroll slips)
+  const totalGpfInRecords = database.taxItems
+    .filter((t) => t.deductionType === 'กบข.' || t.fundCode.toLowerCase().includes('gpf'))
+    .reduce((sum, t) => sum + (t.amount || 0), 0);
+
+  const handleSaveQuickGpf = (amount: number) => {
+    if (amount <= 0) return;
+    if (existingGpfAsset) {
+      updateAsset(existingGpfAsset.id, {
+        name: 'กองทุนบำเหน็จบำนาญข้าราชการ (กบข.)',
+        amountTHB: amount,
+        notes: `แผน กบข. Look-Through: หุ้นไทย ${gpfPlan.thaiStockPercent}%, หุ้น ตปท. ${gpfPlan.foreignStockPercent}%, ทองคำ ${gpfPlan.goldPercent}%`,
+        isGpf: true,
+      });
+    } else {
+      addAsset({
+        name: 'กองทุนบำเหน็จบำนาญข้าราชการ (กบข.)',
+        category: '2. กองทุนรวมไทย',
+        institution: 'กองทุนบำเหน็จบำนาญข้าราชการ (กบข.)',
+        amountTHB: amount,
+        amountUSD: 0,
+        isUSD: false,
+        notes: `แผน กบข. Look-Through: หุ้นไทย ${gpfPlan.thaiStockPercent}%, หุ้น ตปท. ${gpfPlan.foreignStockPercent}%, ทองคำ ${gpfPlan.goldPercent}%`,
+        isGpf: true,
+      });
+    }
+    setShowQuickGpfModal(false);
+  };
 
   const handleCreateAsset = (e: React.FormEvent) => {
     e.preventDefault();
@@ -305,46 +349,122 @@ export default function BalanceSheetView() {
       </div>
 
       {/* 6 Asset Classes Breakdown Cards */}
-      <div>
-        <h2 className="text-lg font-bold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
-          <TrendingUp className="text-emerald-600" size={20} />
-          สัดส่วนสินทรัพย์แยก 6 หมวดมาตรฐาน
-        </h2>
-        
+      <div className="space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+            <TrendingUp className="text-emerald-600" size={20} />
+            สัดส่วนสินทรัพย์แยก 6 หมวดมาตรฐาน
+            {totalGpfValue > 0 && (
+              <span className="text-xs px-2.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 font-bold border border-emerald-300 dark:border-emerald-800">
+                Look-Through กบข. Active
+              </span>
+            )}
+          </h2>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowQuickGpfModal(true)}
+              className="px-3 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/60 dark:hover:bg-emerald-900 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 text-xs font-bold transition flex items-center gap-1.5"
+            >
+              <ShieldCheck size={14} /> {existingGpfAsset ? 'ปรับยอดสะสม กบข.' : 'บันทึกยอดสะสม กบข.'}
+            </button>
+            <button
+              onClick={() => setActiveTab('portfolio')}
+              className="text-xs text-slate-500 hover:text-emerald-600 font-semibold transition"
+            >
+              ดูพอร์ตการลงทุน & Rebalancing →
+            </button>
+          </div>
+        </div>
+
+        {/* Quick GPF Setup Banner if no GPF asset exists */}
+        {!existingGpfAsset && (
+          <div className="bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-100 dark:from-emerald-950/60 dark:to-teal-950/40 border-2 border-dashed border-emerald-300 dark:border-emerald-700 rounded-2xl p-5 shadow-xs">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="flex items-start gap-3">
+                <div className="p-2.5 rounded-xl bg-emerald-600 text-white shrink-0 mt-0.5 shadow-xs">
+                  <ShieldCheck size={22} />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-900 dark:text-white text-sm flex items-center gap-2">
+                    <span>ทำไมหมวดหุ้นไทย / หุ้น ตปท. / ทองคำ ยังเป็น 0.00 ฿?</span>
+                    <span className="px-2 py-0.5 rounded-full bg-emerald-200 dark:bg-emerald-900 text-emerald-900 dark:text-emerald-200 text-[11px] font-bold">
+                      ขั้นตอนแนะนำ
+                    </span>
+                  </h3>
+                  <p className="text-xs text-slate-600 dark:text-slate-300 mt-1 leading-relaxed">
+                    ปัจจุบันในสมุดบัญชีมีเพียง <b>เงินสด/สลาก (เงินเดือนสุทธิ {formatCurrency(totalAssets)} ฿)</b> แต่ยังไม่มีรายการ <b>ยอดเงินสะสม กบข.</b>
+                  </p>
+                  <p className="text-xs text-emerald-700 dark:text-emerald-400 font-medium mt-1">
+                    👉 เพียงคุณกรอก <b>"ยอดเงินสะสม กบข. รวม"</b> (ดูได้จากแอป My GPF หรือใบแจ้งยอด กบข.) ระบบจะกระจายเข้า <b>หุ้นไทย 35%, หุ้น ตปท. 40%, ทองคำ 25%</b> ให้ทันที!
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setShowQuickGpfModal(true)}
+                  className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs transition flex items-center gap-1.5"
+                >
+                  <Plus size={16} /> บันทึกยอดสะสม กบข. ตอนนี้
+                </button>
+                {totalGpfInRecords > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => handleSaveQuickGpf(totalGpfInRecords)}
+                    className="px-3.5 py-2.5 rounded-xl bg-white hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-700 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700 font-bold text-xs transition"
+                  >
+                    ดึงจากสลิป ({formatCurrency(totalGpfInRecords)} ฿)
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {ASSET_CATEGORIES.map((cat) => {
-            const items = database.assets.filter((a) => a.category === cat.key);
-            const catTotal = items.reduce(
-              (sum, a) =>
-                sum + (a.isUSD ? (a.amountUSD || 0) * database.profile.usdToThbRate : a.amountTHB),
-              0
-            );
-            const percentOfTotal = totalAssets > 0 ? (catTotal / totalAssets) * 100 : 0;
+          {allocations.map((alloc) => {
+            const meta = ASSET_CATEGORIES.find((c) => c.key === alloc.category);
+            const items = database.assets.filter((a) => a.category === alloc.category);
+            const percentOfTotal = totalAssets > 0 ? (alloc.currentValue / totalAssets) * 100 : 0;
 
             return (
               <div
-                key={cat.key}
+                key={alloc.category}
                 className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 shadow-xs hover:border-emerald-300 dark:hover:border-emerald-800 transition"
               >
                 <div className="flex items-center justify-between">
-                  <span className={`text-xs px-2.5 py-1 rounded-full font-semibold border ${cat.twBadge}`}>
-                    {cat.shortName}
+                  <span className={`text-xs px-2.5 py-1 rounded-full font-semibold border ${meta?.twBadge || ''}`}>
+                    {alloc.shortName}
                   </span>
-                  <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                    {percentOfTotal.toFixed(1)}%
-                  </span>
+                  <div className="flex items-center gap-1.5">
+                    {alloc.gpfDecomposedValue > 0 && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 font-bold border border-emerald-200 dark:border-emerald-800">
+                        +กบข.
+                      </span>
+                    )}
+                    <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                      {percentOfTotal.toFixed(1)}%
+                    </span>
+                  </div>
                 </div>
 
                 <div className="mt-3">
                   <div className="text-xl font-bold text-slate-900 dark:text-white">
-                    {formatCurrency(catTotal)} <span className="text-xs font-normal text-slate-400">฿</span>
+                    {formatCurrency(alloc.currentValue)} <span className="text-xs font-normal text-slate-400">฿</span>
                   </div>
+                  {alloc.gpfDecomposedValue > 0 && (
+                    <div className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium mt-0.5">
+                      (ตรง: {formatCurrency(alloc.directValue)} | กบข.: +{formatCurrency(alloc.gpfDecomposedValue)})
+                    </div>
+                  )}
                   <div className="w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full mt-2 overflow-hidden">
                     <div
                       className="h-full rounded-full"
                       style={{
                         width: `${Math.min(100, percentOfTotal)}%`,
-                        backgroundColor: cat.color,
+                        backgroundColor: alloc.color,
                       }}
                     ></div>
                   </div>
@@ -352,7 +472,7 @@ export default function BalanceSheetView() {
 
                 <div className="mt-3 text-xs text-slate-500 dark:text-slate-400 flex items-center justify-between">
                   <span>{items.length} รายการบัญชี</span>
-                  <span className="text-slate-400">เป้าหมาย {cat.defaultTargetPercent}%</span>
+                  <span className="text-slate-400">เป้าหมาย {alloc.targetPercent}%</span>
                 </div>
               </div>
             );
@@ -643,6 +763,88 @@ export default function BalanceSheetView() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+      {/* Quick GPF Modal */}
+      {showQuickGpfModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 animate-in fade-in">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 border border-slate-200 dark:border-slate-800 shadow-xl max-w-md w-full space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-xl bg-emerald-600 text-white">
+                  <ShieldCheck size={18} />
+                </div>
+                <h3 className="font-bold text-slate-900 dark:text-white text-base">
+                  บันทึกยอดเงินสะสม กบข.
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowQuickGpfModal(false)}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-sm font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-500 leading-relaxed">
+              กรอกยอดเงินสะสม กบข. รวมทั้งหมดของคุณ (ดูได้จากแอป My GPF หรือสลิปเงินเดือน) ระบบจะนำยอดนี้มากระจายเข้าสู่ <b>หุ้นไทย 35%, หุ้นต่างประเทศ 40%, ทองคำ 25%</b> ให้ทันที
+            </p>
+
+            <div>
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                ยอดเงิน กบข. สะสมรวม (บาท):
+              </label>
+              <div className="relative">
+                <input
+                  type="number"
+                  step="100"
+                  value={quickGpfAmount}
+                  onChange={(e) => setQuickGpfAmount(e.target.value)}
+                  placeholder="เช่น 350000 หรือ 500000"
+                  className="w-full px-3 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-base font-bold text-slate-900 dark:text-white"
+                />
+                <span className="absolute right-3 top-3 text-xs text-slate-400 font-bold">฿</span>
+              </div>
+            </div>
+
+            {totalGpfInRecords > 0 && (
+              <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700 text-xs flex items-center justify-between">
+                <span className="text-slate-600 dark:text-slate-300">
+                  หรือใช้ยอดสะสมจากสลิปเงินเดือน:
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setQuickGpfAmount(String(totalGpfInRecords))}
+                  className="font-bold text-emerald-600 dark:text-emerald-400 hover:underline"
+                >
+                  {formatCurrency(totalGpfInRecords)} ฿
+                </button>
+              </div>
+            )}
+
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowQuickGpfModal(false)}
+                className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
+              >
+                ยกเลิก
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const val = parseFloat(quickGpfAmount);
+                  if (val > 0) {
+                    handleSaveQuickGpf(val);
+                  }
+                }}
+                className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs transition"
+              >
+                บันทึกเข้าพอร์ตทันที
+              </button>
+            </div>
           </div>
         </div>
       )}

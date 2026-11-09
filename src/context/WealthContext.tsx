@@ -366,6 +366,57 @@ export function WealthProvider({ children }: { children: React.ReactNode }) {
       );
     }
 
+    // Accumulate GPF into assets
+    if (totalGpf > 0) {
+      const gpfIdx = updatedAssets.findIndex(
+        (a) => a.isGpf || a.name.toLowerCase().includes('กบข') || a.institution.toLowerCase().includes('กบข')
+      );
+      if (gpfIdx >= 0) {
+        updatedAssets[gpfIdx] = {
+          ...updatedAssets[gpfIdx],
+          amountTHB: (updatedAssets[gpfIdx].amountTHB || 0) + totalGpf,
+          isGpf: true,
+        };
+      } else {
+        const plan = database.profile.gpfPlan;
+        updatedAssets.push({
+          id: crypto.randomUUID(),
+          name: 'กองทุนบำเหน็จบำนาญข้าราชการ (กบข.)',
+          category: '2. กองทุนรวมไทย',
+          institution: 'กองทุนบำเหน็จบำนาญข้าราชการ (กบข.)',
+          amountTHB: totalGpf,
+          amountUSD: 0,
+          isUSD: false,
+          notes: `สะสมจากการหักเงินเดือน (แผน กบข. Look-Through: หุ้นไทย ${plan?.thaiStockPercent ?? 35}%, หุ้น ตปท. ${plan?.foreignStockPercent ?? 40}%, ทองคำ ${plan?.goldPercent ?? 25}%)`,
+          isGpf: true,
+        });
+      }
+    }
+
+    // Accumulate Coop Shares into assets
+    if (details.coopSavingShare > 0) {
+      const coopIdx = updatedAssets.findIndex(
+        (a) => a.name.includes('สหกรณ์') || a.institution.includes('สหกรณ์')
+      );
+      if (coopIdx >= 0) {
+        updatedAssets[coopIdx] = {
+          ...updatedAssets[coopIdx],
+          amountTHB: (updatedAssets[coopIdx].amountTHB || 0) + details.coopSavingShare,
+        };
+      } else {
+        updatedAssets.push({
+          id: crypto.randomUUID(),
+          name: 'หุ้นสหกรณ์ออมทรัพย์สาธารณสุข',
+          category: '2. กองทุนรวมไทย',
+          institution: 'สหกรณ์ออมทรัพย์',
+          amountTHB: details.coopSavingShare,
+          amountUSD: 0,
+          isUSD: false,
+          notes: 'เงินสะสมค่าหุ้นสหกรณ์ออมทรัพย์ประจำเดือน',
+        });
+      }
+    }
+
     const updated = {
       ...database,
       assets: updatedAssets,
