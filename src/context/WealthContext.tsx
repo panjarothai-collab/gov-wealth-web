@@ -8,6 +8,7 @@ import {
   Liability,
   TaxItem,
   UserProfile,
+  PayrollDetails,
 } from '@/types/wealth';
 import { APPLE_EPOCH_OFFSET_SECONDS } from '@/lib/wealthEngine';
 
@@ -24,7 +25,7 @@ interface WealthContextType {
   updateLiability: (id: string, liability: Partial<Liability>) => void;
   deleteLiability: (id: string) => void;
   addJournalEntry: (entry: Omit<JournalEntry, 'id'>) => void;
-  addPayrollBatch: (details: import('@/types/wealth').PayrollDetails, date: string) => void;
+  addPayrollBatch: (details: PayrollDetails, date: string) => void;
   deleteJournalEntry: (id: string) => void;
   importDatabase: (importedData: any) => Promise<boolean>;
   exportDatabase: () => void;
@@ -263,7 +264,7 @@ export function WealthProvider({ children }: { children: React.ReactNode }) {
     saveDatabase(updated);
   };
 
-  const addPayrollBatch = (details: import('@/types/wealth').PayrollDetails, date: string) => {
+  const addPayrollBatch = (details: PayrollDetails, date: string) => {
     if (!database) return;
     const nowIso = new Date(date).toISOString();
     const batchEntries: JournalEntry[] = [];

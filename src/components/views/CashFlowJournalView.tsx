@@ -115,21 +115,21 @@ export default function CashFlowJournalView() {
   // Credit Card Liabilities
   const creditCardLiabilities = useMemo(() => {
     return database.liabilities.filter(
-      (l) => l.category === 'บัตรเครดิต' || l.name.toLowerCase().includes('บัตร')
+      (l) => l.name.toLowerCase().includes('บัตร') || l.lender.toLowerCase().includes('บัตร')
     );
   }, [database.liabilities]);
 
   // Bank Assets (Cash & Equivalents)
   const bankAssets = useMemo(() => {
     return database.assets.filter(
-      (a) => a.category === 'สภาพคล่อง' || a.category === 'เงินฝาก' || a.name.includes('บัญชี') || a.name.includes('เงินสด')
+      (a) => a.category === '1. เงินสดและเทียบเท่า' || a.name.includes('บัญชี') || a.name.includes('เงินสด')
     );
   }, [database.assets]);
 
   // Investment Assets
   const investmentAssets = useMemo(() => {
     return database.assets.filter(
-      (a) => a.category === 'ลงทุน' || a.category === 'หุ้น' || a.category === 'กองทุน' || a.category === 'เกษียณ'
+      (a) => a.category !== '1. เงินสดและเทียบเท่า'
     );
   }, [database.assets]);
 
