@@ -12,6 +12,7 @@ export interface AssetCategoryMeta {
   key: AssetCategory;
   shortName: string;
   defaultTargetPercent: number;
+  defaultExpectedReturnPercent: number;
   color: string;
   twBadge: string;
 }
@@ -21,6 +22,7 @@ export const ASSET_CATEGORIES: AssetCategoryMeta[] = [
     key: '1. เงินสดและเทียบเท่า',
     shortName: 'เงินสด/สลาก',
     defaultTargetPercent: 10,
+    defaultExpectedReturnPercent: 1.5,
     color: '#0D746D',
     twBadge: 'bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300'
   },
@@ -28,6 +30,7 @@ export const ASSET_CATEGORIES: AssetCategoryMeta[] = [
     key: '2. กองทุนรวมไทย',
     shortName: 'กองทุนไทย',
     defaultTargetPercent: 20,
+    defaultExpectedReturnPercent: 4.5,
     color: '#059669',
     twBadge: 'bg-teal-50 text-teal-800 border-teal-200 dark:bg-teal-950 dark:text-teal-300'
   },
@@ -35,6 +38,7 @@ export const ASSET_CATEGORIES: AssetCategoryMeta[] = [
     key: '3. กองทุนรวมต่างประเทศ',
     shortName: 'กองทุน ตปท.',
     defaultTargetPercent: 20,
+    defaultExpectedReturnPercent: 8.0,
     color: '#0284C7',
     twBadge: 'bg-sky-50 text-sky-800 border-sky-200 dark:bg-sky-950 dark:text-sky-300'
   },
@@ -42,6 +46,7 @@ export const ASSET_CATEGORIES: AssetCategoryMeta[] = [
     key: '4. หุ้นไทย',
     shortName: 'หุ้นไทย',
     defaultTargetPercent: 20,
+    defaultExpectedReturnPercent: 7.0,
     color: '#D97706',
     twBadge: 'bg-amber-50 text-amber-800 border-amber-200 dark:bg-amber-950 dark:text-amber-300'
   },
@@ -49,6 +54,7 @@ export const ASSET_CATEGORIES: AssetCategoryMeta[] = [
     key: '5. หุ้นต่างประเทศ',
     shortName: 'หุ้น ตปท.',
     defaultTargetPercent: 20,
+    defaultExpectedReturnPercent: 9.0,
     color: '#7C3AED',
     twBadge: 'bg-purple-50 text-purple-800 border-purple-200 dark:bg-purple-950 dark:text-purple-300'
   },
@@ -56,6 +62,7 @@ export const ASSET_CATEGORIES: AssetCategoryMeta[] = [
     key: '6. พอร์ต FOREX และอื่นๆ',
     shortName: 'FOREX/อื่นๆ',
     defaultTargetPercent: 10,
+    defaultExpectedReturnPercent: 6.0,
     color: '#E11D48',
     twBadge: 'bg-rose-50 text-rose-800 border-rose-200 dark:bg-rose-950 dark:text-rose-300'
   }
@@ -168,6 +175,13 @@ export interface UserProfile {
   targetThaiStockPercent: number;
   targetForeignStockPercent: number;
   targetForexPercent: number;
+  expectedReturnCash?: number;
+  expectedReturnThaiFund?: number;
+  expectedReturnForeignFund?: number;
+  expectedReturnThaiStock?: number;
+  expectedReturnForeignStock?: number;
+  expectedReturnForex?: number;
+  monthlyDcaBudget?: number;
   usdToThbRate: number;
   isOnboarded: boolean;
 }

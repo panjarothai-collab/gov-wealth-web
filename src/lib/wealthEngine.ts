@@ -85,6 +85,41 @@ export interface CategoryAllocation {
   targetPercent: number;
   diffPercent: number;
   rebalanceAmount: number; // positive = buy more, negative = trim/sell
+  expectedReturnPercent: number;
+  isToleranceExceeded: boolean; // Math.abs(diffPercent) > 5.0%
+  dcaRecommendedAmount?: number;
+}
+
+export interface PortfolioExpectedReturnInfo {
+  expectedAnnualReturnPercent: number;
+  expectedAnnualProfitTHB: number;
+  realReturnPercent: number;
+  inflationRatePercent: number;
+  fiveYearFV: number;
+  tenYearFV: number;
+  retirementYearFV: number;
+  retirementYear: number;
+  yearsToRetire: number;
+  monthlyDcaBudget: number;
+}
+
+export function calculateFutureValue(
+  principal: number,
+  monthlyDca: number,
+  annualRatePercent: number,
+  years: number
+): number {
+  const r = annualRatePercent / 100;
+  const n = 12;
+  const t = years;
+  if (r <= 0) {
+    return principal + monthlyDca * n * t;
+  }
+  const monthlyRate = r / n;
+  const totalMonths = n * t;
+  const fvPrincipal = principal * Math.pow(1 + monthlyRate, totalMonths);
+  const fvAnnuity = monthlyDca * ((Math.pow(1 + monthlyRate, totalMonths) - 1) / monthlyRate);
+  return Math.round((fvPrincipal + fvAnnuity) * 100) / 100;
 }
 
 export function calculatePortfolioAllocation(
@@ -93,6 +128,7 @@ export function calculatePortfolioAllocation(
 ): {
   allocations: CategoryAllocation[];
   totalInvested: number;
+  expectedReturnInfo: PortfolioExpectedReturnInfo;
 } {
   const usdRate = profile.usdToThbRate || 36.5;
   const totalInvested = assets.reduce((sum, a) => {
@@ -108,7 +144,19 @@ export function calculatePortfolioAllocation(
     '6. พอร์ต FOREX และอื่นๆ': profile.targetForexPercent || 10,
   };
 
-  const allocations: CategoryAllocation[] = ASSET_CATEGORIES.map((meta) => {
+  const expectedReturnMap: Record<AssetCategory, number> = {
+    '1. เงินสดและเทียบเท่า': profile.expectedReturnCash ?? 1.5,
+    '2. กองทุนรวมไทย': profile.expectedReturnThaiFund ?? 4.5,
+    '3. กองทุนรวมต่างประเทศ': profile.expectedReturnForeignFund ?? 8.0,
+    '4. หุ้นไทย': profile.expectedReturnThaiStock ?? 7.0,
+    '5. หุ้นต่างประเทศ': profile.expectedReturnForeignStock ?? 9.0,
+    '6. พอร์ต FOREX และอื่นๆ': profile.expectedReturnForex ?? 6.0,
+  };
+
+  const monthlyDcaBudget = profile.monthlyDcaBudget || 10000;
+
+  // 1. Initial Category Allocations
+  let rawAllocations = ASSET_CATEGORIES.map((meta) => {
     const catAssets = assets.filter((a) => a.category === meta.key);
     const currentValue = catAssets.reduce((sum, a) => {
       return sum + (a.isUSD ? (a.amountUSD || 0) * usdRate : (a.amountTHB || 0));
@@ -120,6 +168,8 @@ export function calculatePortfolioAllocation(
     const diffPercent = actualPercent - targetPercent;
     const targetValue = (targetPercent / 100) * totalInvested;
     const rebalanceAmount = targetValue - currentValue;
+    const expectedReturnPercent = expectedReturnMap[meta.key] ?? meta.defaultExpectedReturnPercent;
+    const isToleranceExceeded = Math.abs(diffPercent) > 5.0;
 
     return {
       category: meta.key,
@@ -130,10 +180,65 @@ export function calculatePortfolioAllocation(
       targetPercent,
       diffPercent,
       rebalanceAmount,
+      expectedReturnPercent,
+      isToleranceExceeded,
     };
   });
 
-  return { allocations, totalInvested };
+  // 2. Smart DCA Inflow Distribution:
+  // Allocate monthlyDcaBudget preferentially to underweight categories (diffPercent < 0)
+  const deficitAllocations = rawAllocations.filter((a) => a.rebalanceAmount > 0);
+  const totalDeficit = deficitAllocations.reduce((sum, a) => sum + a.rebalanceAmount, 0);
+
+  const allocations: CategoryAllocation[] = rawAllocations.map((alloc) => {
+    let dcaRecommendedAmount = 0;
+    if (totalDeficit > 0 && alloc.rebalanceAmount > 0) {
+      dcaRecommendedAmount = Math.round((alloc.rebalanceAmount / totalDeficit) * monthlyDcaBudget * 100) / 100;
+    } else {
+      // If fully balanced or no deficit, allocate by target percentage
+      dcaRecommendedAmount = Math.round(((alloc.targetPercent / 100) * monthlyDcaBudget) * 100) / 100;
+    }
+    return {
+      ...alloc,
+      dcaRecommendedAmount,
+    };
+  });
+
+  // 3. Expected Annual Return Calculation (MPT Weighted Average)
+  // E(Rp) = sum( TargetWeight_i * E(R_i) )
+  const expectedAnnualReturnPercent = allocations.reduce((sum, a) => {
+    return sum + (a.targetPercent / 100) * a.expectedReturnPercent;
+  }, 0);
+
+  const roundedExpectedReturn = Math.round(expectedAnnualReturnPercent * 100) / 100;
+  const expectedAnnualProfitTHB = Math.round(totalInvested * (roundedExpectedReturn / 100) * 100) / 100;
+
+  const inflationRatePercent = 2.0; // ค่าเฉลี่ยเงินเฟ้อระยะยาวของไทย
+  const realReturnPercent = Math.round((roundedExpectedReturn - inflationRatePercent) * 100) / 100;
+
+  // 4. Future Value Retirement Projections
+  const retirementYear = 2588;
+  const currentYear = 2569;
+  const yearsToRetire = Math.max(1, retirementYear - currentYear); // 19 years
+
+  const fiveYearFV = calculateFutureValue(totalInvested, monthlyDcaBudget, roundedExpectedReturn, 5);
+  const tenYearFV = calculateFutureValue(totalInvested, monthlyDcaBudget, roundedExpectedReturn, 10);
+  const retirementYearFV = calculateFutureValue(totalInvested, monthlyDcaBudget, roundedExpectedReturn, yearsToRetire);
+
+  const expectedReturnInfo: PortfolioExpectedReturnInfo = {
+    expectedAnnualReturnPercent: roundedExpectedReturn,
+    expectedAnnualProfitTHB,
+    realReturnPercent,
+    inflationRatePercent,
+    fiveYearFV,
+    tenYearFV,
+    retirementYearFV,
+    retirementYear,
+    yearsToRetire,
+    monthlyDcaBudget,
+  };
+
+  return { allocations, totalInvested, expectedReturnInfo };
 }
 
 export interface TaxAssessmentResult {
