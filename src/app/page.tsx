@@ -32,7 +32,7 @@ function MainApp() {
         <div className="mt-4 font-bold text-slate-800 dark:text-slate-100 text-base">
           GovWealth Planner Web
         </div>
-        <div className="text-xs text-slate-400 mt-1">กำลังโหลดฐานข้อมูล พ.ศ. ๒๕๖๙...</div>
+        <div className="text-xs text-slate-400 mt-1">กำลังโหลดฐานข้อมูล พ.ศ. 2569...</div>
       </div>
     );
   }
@@ -40,7 +40,7 @@ function MainApp() {
   const navItems = [
     { id: 'balance', label: 'สรุปงบดุลส่วนบุคคล', shortLabel: 'งบดุล', icon: Wallet },
     { id: 'health', label: 'ตรวจสุขภาพการเงิน', shortLabel: 'สุขภาพ', icon: Activity },
-    { id: 'portfolio', label: 'พอร์ต ๖ หมวด & สรุป', shortLabel: 'พอร์ต ๖', icon: PieIcon },
+    { id: 'portfolio', label: 'พอร์ต 6 หมวด & สรุป', shortLabel: 'พอร์ต 6', icon: PieIcon },
     { id: 'cashflow', label: 'กระแสเงินสด', shortLabel: 'กระแสเงิน', icon: BookOpen },
     { id: 'tax', label: 'ภาษี & กบข./RMF', shortLabel: 'ภาษี/กบข.', icon: Receipt },
     { id: 'settings', label: 'ตั้งค่าผู้ใช้ & ข้อมูล', shortLabel: 'ตั้งค่า', icon: Settings },
@@ -104,7 +104,7 @@ function MainApp() {
 
         {/* Footer info */}
         <div className="p-4 border-t border-slate-100 dark:border-slate-800 text-[11px] text-slate-400 text-center">
-          ระบบบริหารการเงินภาครัฐไทย พ.ศ. ๒๕๖๙
+          ระบบบริหารการเงินภาครัฐไทย พ.ศ. 2569
         </div>
       </aside>
 
@@ -119,7 +119,7 @@ function MainApp() {
               GovWealth Planner
             </div>
             <div className="text-[10px] text-emerald-600 font-medium">
-              สสจ.นครนายก (พ.ศ. ๒๕๖๙)
+              สสจ.นครนายก (พ.ศ. 2569)
             </div>
           </div>
         </div>

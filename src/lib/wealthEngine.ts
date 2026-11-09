@@ -333,7 +333,7 @@ export function calculateTaxAssessment(
   );
   const gpfItemsCount = gpfItems.length;
   const gpfTotalDeduction = gpfItems.reduce((sum, t) => sum + t.amount, 0);
-  // Cap at 30% of salary, max 500,000 THB (พ.ศ. ๒๕๖๙)
+  // Cap at 30% of salary, max 500,000 THB (พ.ศ. 2569)
   const gpfCap = Math.min(salaryAnnual * 0.30, 500000);
   const gpfDeduction = Math.min(gpfTotalDeduction, gpfCap);
 
@@ -459,7 +459,7 @@ export function calculateTaxAssessment(
       recommendInclude,
       recommendationText: recommendInclude
         ? `แนะนำให้นำเงินปันผลมารวมคำนวณภาษี เพราะฐานภาษีของท่าน (${marginalTaxRatePercent}%) ต่ำกว่าอัตราภาษีนิติบุคคล จะได้รับเงินคืนภาษีเพิ่มขึ้น ฿${advantageAmount.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-        : `แนะนำไม่นำเงินปันผลมารวมคำนวณ (เลือก Final Tax ๑๐%) เพราะประหยัดภาษีกว่า ฿${advantageAmount.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+        : `แนะนำไม่นำเงินปันผลมารวมคำนวณ (เลือก Final Tax 10%) เพราะประหยัดภาษีกว่า ฿${advantageAmount.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
     };
   }
 

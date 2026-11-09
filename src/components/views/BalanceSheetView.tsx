@@ -114,7 +114,7 @@ export default function BalanceSheetView() {
             สรุปงบดุลและความมั่งคั่งส่วนบุคคล
           </h1>
           <p className="text-sm text-slate-700 dark:text-slate-300">
-            {database.profile.rank} {database.profile.fullName} (ปี พ.ศ. ๒๕๖๙)
+            {database.profile.rank} {database.profile.fullName} (ปี พ.ศ. 2569)
           </p>
         </div>
 
@@ -146,11 +146,11 @@ export default function BalanceSheetView() {
                 ตรวจสุขภาพทางการเงิน (CFP & ระเบียบข้าราชการ)
               </span>
               <span className="text-[10px] bg-emerald-500/20 text-emerald-200 border border-emerald-400/30 px-2 py-0.5 rounded-full font-semibold">
-                ๕ อัตราส่วน
+                5 อัตราส่วน
               </span>
             </div>
             <div className="text-sm md:text-base font-extrabold mt-0.5 flex flex-wrap items-baseline gap-2">
-              <span>คะแนนสุขภาพ: <strong className="text-emerald-300 font-mono text-xl">{healthReport.overallScore}</strong> / ๑๐๐</span>
+              <span>คะแนนสุขภาพ: <strong className="text-emerald-300 font-mono text-xl">{healthReport.overallScore}</strong> / 100</span>
               <span className="text-xs font-normal text-slate-300">({healthReport.tierName})</span>
             </div>
           </div>
@@ -160,7 +160,7 @@ export default function BalanceSheetView() {
           onClick={() => setActiveTab('health')}
           className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs transition shadow-sm shrink-0"
         >
-          ดูผลตรวจสุขภาพเชิงลึก ๕ อัตราส่วน <ChevronRight size={14} />
+          ดูผลตรวจสุขภาพเชิงลึก 5 อัตราส่วน <ChevronRight size={14} />
         </button>
       </div>
 
@@ -261,7 +261,7 @@ export default function BalanceSheetView() {
                 {formatCurrency(totalAssets)} <span className="text-sm font-normal text-slate-400">฿</span>
               </div>
               <p className="text-xs text-slate-500 mt-1">
-                จากทั้งหมด {database.assets.length} รายการ (๖ หมวดสินทรัพย์)
+                จากทั้งหมด {database.assets.length} รายการ (6 หมวดสินทรัพย์)
               </p>
             </div>
           </div>
@@ -308,7 +308,7 @@ export default function BalanceSheetView() {
       <div>
         <h2 className="text-lg font-bold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
           <TrendingUp className="text-emerald-600" size={20} />
-          สัดส่วนสินทรัพย์แยก ๖ หมวดมาตรฐาน
+          สัดส่วนสินทรัพย์แยก 6 หมวดมาตรฐาน
         </h2>
         
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -486,7 +486,7 @@ export default function BalanceSheetView() {
 
               <div>
                 <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
-                  หมวดหมู่สินทรัพย์ ๖ ประเภท *
+                  หมวดหมู่สินทรัพย์ 6 ประเภท *
                 </label>
                 <select
                   value={newAssetCategory}

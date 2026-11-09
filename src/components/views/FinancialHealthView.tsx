@@ -33,7 +33,7 @@ export default function FinancialHealthView() {
     database.journalEntries,
     database.taxItems,
     database.profile,
-    2026 // พ.ศ. ๒๕๖๙
+    2026 // พ.ศ. 2569
   );
 
   const getStatusBadge = (status: HealthStatusLevel) => {
@@ -93,13 +93,13 @@ export default function FinancialHealthView() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs">
         <div>
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 text-xs font-semibold border border-emerald-200 dark:border-emerald-800/60 mb-2">
-            <ShieldCheck size={14} /> มาตรฐาน CFP • SET • การเงินข้าราชการไทย พ.ศ. ๒๕๖๙
+            <ShieldCheck size={14} /> มาตรฐาน CFP • SET • การเงินข้าราชการไทย พ.ศ. 2569
           </div>
           <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-2.5">
             <Activity className="text-emerald-600" /> ตรวจสุขภาพทางการเงิน (Financial Health Checkup)
           </h1>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-            วิเคราะห์ ๕ อัตราส่วนความมั่นคงทางการเงินและสมดุลหนี้สินตามหลักวิชาการสากล
+            วิเคราะห์ 5 อัตราส่วนความมั่นคงทางการเงินและสมดุลหนี้สินตามหลักวิชาการสากล
           </p>
         </div>
 
@@ -107,7 +107,7 @@ export default function FinancialHealthView() {
           <div className="text-right">
             <div className="text-xs text-slate-400">รอบการประเมิน</div>
             <div className="text-sm font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5 justify-end">
-              <Calendar size={14} className="text-emerald-600" /> ประจำปี พ.ศ. ๒๕๖๙
+              <Calendar size={14} className="text-emerald-600" /> ประจำปี พ.ศ. 2569
             </div>
           </div>
         </div>
@@ -125,7 +125,7 @@ export default function FinancialHealthView() {
                 คะแนนรวมสุขภาพการเงิน
               </span>
               <span className="text-xs bg-white/10 px-2.5 py-1 rounded-full text-slate-300">
-                ถ่วงน้ำหนัก ๕ มิติ
+                ถ่วงน้ำหนัก 5 มิติ
               </span>
             </div>
 
@@ -133,7 +133,7 @@ export default function FinancialHealthView() {
               <span className="text-6xl font-black tracking-tight text-white font-mono">
                 {report.overallScore}
               </span>
-              <span className="text-xl font-bold text-slate-400">/ ๑๐๐</span>
+              <span className="text-xl font-bold text-slate-400">/ 100</span>
             </div>
 
             <div className="mt-3">
@@ -203,7 +203,7 @@ export default function FinancialHealthView() {
       {/* 5 Academic Ratios Grid */}
       <div>
         <h2 className="text-lg font-bold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
-          <span>การประเมิน ๕ อัตราส่วนมาตรฐานวิชาการ</span>
+          <span>การประเมิน 5 อัตราส่วนมาตรฐานวิชาการ</span>
         </h2>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -235,7 +235,7 @@ export default function FinancialHealthView() {
                       {ratio.formattedValue}
                     </div>
                     <div className="text-xs font-bold text-slate-500 font-mono">
-                      คะแนน {ratio.score}/๑๐๐
+                      คะแนน {ratio.score}/100
                     </div>
                   </div>
 

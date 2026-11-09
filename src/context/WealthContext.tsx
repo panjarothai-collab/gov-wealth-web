@@ -279,8 +279,8 @@ export function WealthProvider({ children }: { children: React.ReactNode }) {
       title: 'เงินเดือนข้าราชการ (ยอดเต็ม)',
       amount: details.grossSalary,
       debitAccountName: 'บัญชีเงินเดือน',
-      creditAccountName: 'รายได้เงินเดือน ๔๐(๑)',
-      revenueCategory: '๔๐(๑) เงินเดือน',
+      creditAccountName: 'รายได้เงินเดือน 40(1)',
+      revenueCategory: '40(1) เงินเดือน',
       note: 'บันทึกผ่านตัวช่วยสลิปเงินเดือนข้าราชการ',
     });
 
@@ -291,7 +291,7 @@ export function WealthProvider({ children }: { children: React.ReactNode }) {
         date: nowIso,
         type: 'จ่ายเงิน (ค่าใช้จ่าย)',
         smartType: 'PAYROLL',
-        title: 'ภาษีหัก ณ ที่จ่าย ภ.ง.ด.๑ (เงินเดือน)',
+        title: 'ภาษีหัก ณ ที่จ่าย ภ.ง.ด.1 (เงินเดือน)',
         amount: details.withholdingTax,
         debitAccountName: 'ภาษีหัก ณ ที่จ่ายสะสม',
         creditAccountName: 'บัญชีเงินเดือน',

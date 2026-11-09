@@ -11,7 +11,7 @@ const prompt = Prompt({
 
 export const metadata: Metadata = {
   title: 'GovWealth Planner — ระบบบริหารความมั่งคั่งและภาษีข้าราชการไทย',
-  description: 'ระบบวางแผนการเงิน งบดุล พอร์ตการลงทุน ๖ หมวด กระแสเงินสด และภาษี กบข./RMF สำหรับข้าราชการไทย พ.ศ. ๒๕๖๙',
+  description: 'ระบบวางแผนการเงิน งบดุล พอร์ตการลงทุน 6 หมวด กระแสเงินสด และภาษี กบข./RMF สำหรับข้าราชการไทย พ.ศ. 2569',
 };
 
 export default function RootLayout({
@@ -21,7 +21,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="th" className={`${prompt.variable} font-sans h-full antialiased`}>
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col font-sans">{children}</body>
     </html>
   );
 }

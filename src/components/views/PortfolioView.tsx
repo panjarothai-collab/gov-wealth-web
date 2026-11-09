@@ -92,7 +92,7 @@ export default function PortfolioView() {
         <div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
             <PieIcon className="text-emerald-600" size={24} />
-            พอร์ตการลงทุน ๖ หมวด & การปรับสมดุล (Rebalancing)
+            พอร์ตการลงทุน 6 หมวด & การปรับสมดุล (Rebalancing)
           </h1>
           <p className="text-sm text-slate-500 mt-1">
             มูลค่าพอร์ตลงทุนรวมทั้งหมด: <span className="font-bold text-emerald-600 dark:text-emerald-400">{formatCurrency(totalInvested)} ฿</span>
@@ -117,7 +117,7 @@ export default function PortfolioView() {
                 <TrendingUp size={16} /> ประมาณการผลตอบแทนเฉลี่ยต่อปี (MPT)
               </span>
               <span className="bg-white/10 px-2 py-0.5 rounded-full border border-white/20">
-                ๖ หมวดมาตรฐาน
+                6 หมวดมาตรฐาน
               </span>
             </div>
 
@@ -138,7 +138,7 @@ export default function PortfolioView() {
               <div className="text-sm font-bold mt-0.5">
                 +{expectedReturnInfo.realReturnPercent.toFixed(2)}% ต่อปี
               </div>
-              <span className="text-[10px] text-emerald-400/80">หักเงินเฟ้อ ๒.๐%</span>
+              <span className="text-[10px] text-emerald-400/80">หักเงินเฟ้อ 2.0%</span>
             </div>
             <div className="text-right">
               <span className="text-emerald-300">สัดส่วนเสี่ยง : มั่นคง:</span>
@@ -175,7 +175,7 @@ export default function PortfolioView() {
             {/* 5 Years */}
             <div className="p-3.5 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700">
               <div className="flex items-center justify-between text-xs text-slate-500 mb-1">
-                <span className="font-medium">อีก ๕ ปี (พ.ศ. ๒๕๗๔)</span>
+                <span className="font-medium">อีก 5 ปี (พ.ศ. 2574)</span>
                 <span className="text-[10px] bg-slate-200 dark:bg-slate-700 px-1.5 py-0.5 rounded">ระยะสั้น</span>
               </div>
               <div className="text-lg font-bold text-slate-900 dark:text-white">
@@ -189,7 +189,7 @@ export default function PortfolioView() {
             {/* 10 Years */}
             <div className="p-3.5 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700">
               <div className="flex items-center justify-between text-xs text-slate-500 mb-1">
-                <span className="font-medium">อีก ๑๐ ปี (พ.ศ. ๒๕๗๙)</span>
+                <span className="font-medium">อีก 10 ปี (พ.ศ. 2579)</span>
                 <span className="text-[10px] bg-slate-200 dark:bg-slate-700 px-1.5 py-0.5 rounded">ระยะกลาง</span>
               </div>
               <div className="text-lg font-bold text-emerald-600 dark:text-emerald-400">
@@ -203,8 +203,8 @@ export default function PortfolioView() {
             {/* Retirement (2588) */}
             <div className="p-3.5 bg-emerald-50/70 dark:bg-emerald-950/30 rounded-xl border border-emerald-200 dark:border-emerald-800/60 ring-2 ring-emerald-500/10">
               <div className="flex items-center justify-between text-xs text-emerald-800 dark:text-emerald-300 mb-1 font-semibold">
-                <span>วันเกษียณ (พ.ศ. ๒๕๘๘)</span>
-                <span className="text-[10px] bg-emerald-600 text-white px-1.5 py-0.5 rounded">๖๐ ปีบริบูรณ์</span>
+                <span>วันเกษียณ (พ.ศ. 2588)</span>
+                <span className="text-[10px] bg-emerald-600 text-white px-1.5 py-0.5 rounded">60 ปีบริบูรณ์</span>
               </div>
               <div className="text-lg font-extrabold text-emerald-700 dark:text-emerald-300">
                 ฿{formatCurrency(expectedReturnInfo.retirementYearFV)}
@@ -226,7 +226,7 @@ export default function PortfolioView() {
                 กำหนดสัดส่วนเป้าหมาย (Target %) และ ผลตอบแทนคาดหวัง (Expected Return %)
               </h3>
               <p className="text-xs text-slate-500 mt-0.5">
-                กำหนดสัดส่วนเป้าหมายรวม ๑๐๐% และระบุผลตอบแทนเฉลี่ยต่อปีที่คาดหวังตามหลักวิชาการ
+                กำหนดสัดส่วนเป้าหมายรวม 100% และระบุผลตอบแทนเฉลี่ยต่อปีที่คาดหวังตามหลักวิชาการ
               </p>
             </div>
             <span className={`text-xs font-bold px-3 py-1.5 rounded-full ${
@@ -234,7 +234,7 @@ export default function PortfolioView() {
                 ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200'
                 : 'bg-rose-100 text-rose-800 dark:bg-rose-900 dark:text-rose-200'
             }`}>
-              สัดส่วนเป้าหมายรวม: {totalTargetPercent}% {Math.abs(totalTargetPercent - 100) < 0.01 ? '✓ ครบ ๑๐๐%' : '(ขาด/เกิน)'}
+              สัดส่วนเป้าหมายรวม: {totalTargetPercent}% {Math.abs(totalTargetPercent - 100) < 0.01 ? '✓ ครบ 100%' : '(ขาด/เกิน)'}
             </span>
           </div>
 
@@ -242,7 +242,7 @@ export default function PortfolioView() {
             {/* 1. Cash */}
             <div className="bg-white dark:bg-slate-800 p-3 rounded-xl border border-slate-200 dark:border-slate-700 space-y-2">
               <span className="text-xs font-bold text-emerald-800 dark:text-emerald-300 block">
-                ๑. เงินสด/สลาก
+                1. เงินสด/สลาก
               </span>
               <div>
                 <label className="text-[11px] text-slate-500 block mb-0.5">สัดส่วนเป้าหมาย (%)</label>
@@ -269,7 +269,7 @@ export default function PortfolioView() {
             {/* 2. Thai Fund */}
             <div className="bg-white dark:bg-slate-800 p-3 rounded-xl border border-slate-200 dark:border-slate-700 space-y-2">
               <span className="text-xs font-bold text-teal-800 dark:text-teal-300 block">
-                ๒. กองทุนไทย
+                2. กองทุนไทย
               </span>
               <div>
                 <label className="text-[11px] text-slate-500 block mb-0.5">สัดส่วนเป้าหมาย (%)</label>
@@ -296,7 +296,7 @@ export default function PortfolioView() {
             {/* 3. Foreign Fund */}
             <div className="bg-white dark:bg-slate-800 p-3 rounded-xl border border-slate-200 dark:border-slate-700 space-y-2">
               <span className="text-xs font-bold text-sky-800 dark:text-sky-300 block">
-                ๓. กองทุน ตปท.
+                3. กองทุน ตปท.
               </span>
               <div>
                 <label className="text-[11px] text-slate-500 block mb-0.5">สัดส่วนเป้าหมาย (%)</label>
@@ -323,7 +323,7 @@ export default function PortfolioView() {
             {/* 4. Thai Stock */}
             <div className="bg-white dark:bg-slate-800 p-3 rounded-xl border border-slate-200 dark:border-slate-700 space-y-2">
               <span className="text-xs font-bold text-amber-800 dark:text-amber-300 block">
-                ๔. หุ้นไทย
+                4. หุ้นไทย
               </span>
               <div>
                 <label className="text-[11px] text-slate-500 block mb-0.5">สัดส่วนเป้าหมาย (%)</label>
@@ -350,7 +350,7 @@ export default function PortfolioView() {
             {/* 5. Foreign Stock */}
             <div className="bg-white dark:bg-slate-800 p-3 rounded-xl border border-slate-200 dark:border-slate-700 space-y-2">
               <span className="text-xs font-bold text-purple-800 dark:text-purple-300 block">
-                ๕. หุ้น ตปท.
+                5. หุ้น ตปท.
               </span>
               <div>
                 <label className="text-[11px] text-slate-500 block mb-0.5">สัดส่วนเป้าหมาย (%)</label>
@@ -377,7 +377,7 @@ export default function PortfolioView() {
             {/* 6. FOREX */}
             <div className="bg-white dark:bg-slate-800 p-3 rounded-xl border border-slate-200 dark:border-slate-700 space-y-2">
               <span className="text-xs font-bold text-rose-800 dark:text-rose-300 block">
-                ๖. FOREX/อื่นๆ
+                6. FOREX/อื่นๆ
               </span>
               <div>
                 <label className="text-[11px] text-slate-500 block mb-0.5">สัดส่วนเป้าหมาย (%)</label>
@@ -443,10 +443,10 @@ export default function PortfolioView() {
           <ShieldAlert className="text-amber-600 shrink-0 mt-0.5" size={20} />
           <div className="text-xs">
             <span className="font-bold text-amber-900 dark:text-amber-300 text-sm">
-              แจ้งเตือนเกณฑ์เบี่ยงเบนพอร์ต (Tolerance Band Alert &gt; ±๕%)
+              แจ้งเตือนเกณฑ์เบี่ยงเบนพอร์ต (Tolerance Band Alert &gt; ±5%)
             </span>
             <p className="text-amber-800/90 dark:text-amber-400 mt-0.5">
-              มีหมวดสินทรัพย์ที่สัดส่วนจริงเบี่ยงเบนเกินเกณฑ์ ±๕% จากเป้าหมาย แนะนำพิจารณาปรับพอร์ตใหญ่ (Major Rebalance) โดยการขายทำกำไรหมวดที่เกิน และโยกเข้าหมวดที่ขาดตามตารางสรุปด้านล่าง
+              มีหมวดสินทรัพย์ที่สัดส่วนจริงเบี่ยงเบนเกินเกณฑ์ ±5% จากเป้าหมาย แนะนำพิจารณาปรับพอร์ตใหญ่ (Major Rebalance) โดยการขายทำกำไรหมวดที่เกิน และโยกเข้าหมวดที่ขาดตามตารางสรุปด้านล่าง
             </p>
           </div>
         </div>
@@ -531,7 +531,7 @@ export default function PortfolioView() {
                   }`}>
                     {alloc.isToleranceExceeded ? (
                       <>
-                        <AlertTriangle size={11} /> หลุดกรอบ ±๕%
+                        <AlertTriangle size={11} /> หลุดกรอบ ±5%
                       </>
                     ) : isBalanced ? (
                       <>
@@ -608,7 +608,7 @@ export default function PortfolioView() {
             สรุปแผนปฏิบัติการปรับสมดุลพอร์ต (Portfolio Rebalancing Actions)
           </h2>
           <span className="text-xs text-slate-400">
-            เกณฑ์แจ้งเตือน Tolerance Band: ±๕%
+            เกณฑ์แจ้งเตือน Tolerance Band: ±5%
           </span>
         </div>
 

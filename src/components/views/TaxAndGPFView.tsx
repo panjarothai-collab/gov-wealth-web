@@ -63,7 +63,7 @@ export default function TaxAndGPFView() {
             การวางแผนภาษี & สิทธิ กบข. / ThaiESG / เครดิตปันผล
           </h1>
           <p className="text-sm text-slate-500 mt-1">
-            คำนวณภาษีเงินได้บุคคลธรรมดา ภ.ง.ด. ๙๐/๙๑ ประจำปี พ.ศ. ๒๕๖๙ พร้อมระบบเปรียบเทียบสิทธิเงินปันผล Side-by-Side
+            คำนวณภาษีเงินได้บุคคลธรรมดา ภ.ง.ด. 90/91 ประจำปี พ.ศ. 2569 พร้อมระบบเปรียบเทียบสิทธิเงินปันผล Side-by-Side
           </p>
         </div>
 
@@ -120,7 +120,7 @@ export default function TaxAndGPFView() {
               <div className="flex items-center gap-2">
                 <span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
                 <h3 className="font-bold text-slate-900 dark:text-white text-base">
-                  เงินปันผลหุ้นไทย & เครดิตภาษี (มาตรา ๔๗ ทวิ)
+                  เงินปันผลหุ้นไทย & เครดิตภาษี (มาตรา 47 ทวิ)
                 </h3>
               </div>
               <span className="text-xs bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 font-semibold px-2.5 py-1 rounded-full border border-emerald-200 dark:border-emerald-900">
@@ -130,28 +130,28 @@ export default function TaxAndGPFView() {
 
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 my-5">
               <div className="bg-slate-50 dark:bg-slate-800/50 p-3.5 rounded-xl border border-slate-100 dark:border-slate-800">
-                <span className="text-xs text-slate-500">๑. เงินปันผลรวม (Gross)</span>
+                <span className="text-xs text-slate-500">1. เงินปันผลรวม (Gross)</span>
                 <div className="text-lg font-bold text-slate-900 dark:text-white mt-1">
                   {formatCurrency(taxResult.dividendGross)} ฿
                 </div>
               </div>
 
               <div className="bg-slate-50 dark:bg-slate-800/50 p-3.5 rounded-xl border border-slate-100 dark:border-slate-800">
-                <span className="text-xs text-slate-500">๒. หัก ณ ที่จ่าย ๑๐%</span>
+                <span className="text-xs text-slate-500">2. หัก ณ ที่จ่าย 10%</span>
                 <div className="text-lg font-bold text-rose-600 dark:text-rose-400 mt-1">
                   {formatCurrency(taxResult.dividendWithheld)} ฿
                 </div>
               </div>
 
               <div className="bg-slate-50 dark:bg-slate-800/50 p-3.5 rounded-xl border border-slate-100 dark:border-slate-800">
-                <span className="text-xs text-slate-500">๓. รับสุทธิเข้าบัญชี (Net)</span>
+                <span className="text-xs text-slate-500">3. รับสุทธิเข้าบัญชี (Net)</span>
                 <div className="text-lg font-bold text-emerald-600 dark:text-emerald-400 mt-1">
                   {formatCurrency(taxResult.dividendNetReceived)} ฿
                 </div>
               </div>
 
               <div className="bg-slate-50 dark:bg-slate-800/50 p-3.5 rounded-xl border border-slate-100 dark:border-slate-800">
-                <span className="text-xs text-slate-500">๔. เครดิตภาษี ม.๔๗ ทวิ</span>
+                <span className="text-xs text-slate-500">4. เครดิตภาษี ม.47 ทวิ</span>
                 <div className="text-lg font-bold text-blue-600 dark:text-blue-400 mt-1">
                   {formatCurrency(taxResult.dividendTaxCredit)} ฿
                 </div>
@@ -187,7 +187,7 @@ export default function TaxAndGPFView() {
                       : 'bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700'
                   }`}>
                     <div className="text-xs font-semibold text-slate-500 mb-1">
-                      ทางเลือกที่ ๑: นำเงินปันผลมารวมยื่นแบบ (ภ.ง.ด. ๙๐)
+                      ทางเลือกที่ 1: นำเงินปันผลมารวมยื่นแบบ (ภ.ง.ด. 90)
                     </div>
                     <div className="text-lg font-extrabold text-emerald-600 dark:text-emerald-400">
                       {taxResult.dividendComparison.withDividendsRefund < 0
@@ -195,7 +195,7 @@ export default function TaxAndGPFView() {
                         : `ต้องชำระภาษี ฿${formatCurrency(taxResult.dividendComparison.withDividendsRefund)}`}
                     </div>
                     <p className="text-[11px] text-slate-500 mt-1">
-                      ดึงเครดิตภาษี ม.๔๗ ทวิ คืน + ขอคืนภาษีหัก ณ ที่จ่าย ๑๐%
+                      ดึงเครดิตภาษี ม.47 ทวิ คืน + ขอคืนภาษีหัก ณ ที่จ่าย 10%
                     </p>
                   </div>
 
@@ -206,7 +206,7 @@ export default function TaxAndGPFView() {
                       : 'bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700'
                   }`}>
                     <div className="text-xs font-semibold text-slate-500 mb-1">
-                      ทางเลือกที่ ๒: ไม่นำมารวมยื่น (ใช้สิทธิ์ Final Tax ๑๐%)
+                      ทางเลือกที่ 2: ไม่นำมารวมยื่น (ใช้สิทธิ์ Final Tax 10%)
                     </div>
                     <div className="text-lg font-extrabold text-slate-700 dark:text-slate-300">
                       {taxResult.dividendComparison.withoutDividendsRefund < 0
@@ -214,7 +214,7 @@ export default function TaxAndGPFView() {
                         : `ต้องชำระภาษี ฿${formatCurrency(taxResult.dividendComparison.withoutDividendsRefund)}`}
                     </div>
                     <p className="text-[11px] text-slate-500 mt-1">
-                      ปล่อยให้หัก ณ ที่จ่าย ๑๐% เป็นภาษีงวดสุดท้าย ไม่กระทบฐานภาษี
+                      ปล่อยให้หัก ณ ที่จ่าย 10% เป็นภาษีงวดสุดท้าย ไม่กระทบฐานภาษี
                     </p>
                   </div>
                 </div>
@@ -233,10 +233,10 @@ export default function TaxAndGPFView() {
             <div className="flex items-center justify-between p-4 bg-emerald-50/50 dark:bg-emerald-950/20 rounded-xl border border-emerald-100 dark:border-emerald-900 mt-4">
               <div>
                 <div className="text-sm font-semibold text-slate-900 dark:text-white">
-                  เปิดใช้นำเงินปันผลมารวมคำนวณภาษีในการประเมินนี้ (ภ.ง.ด. ๙๐)
+                  เปิดใช้นำเงินปันผลมารวมคำนวณภาษีในการประเมินนี้ (ภ.ง.ด. 90)
                 </div>
                 <div className="text-xs text-slate-500 mt-0.5">
-                  สูตร Gross-up ตาม ม.๔๗ ทวิ เครดิตภาษี: +฿{formatCurrency(taxResult.dividendTaxCredit)}
+                  สูตร Gross-up ตาม ม.47 ทวิ เครดิตภาษี: +฿{formatCurrency(taxResult.dividendTaxCredit)}
                 </div>
               </div>
 
@@ -255,26 +255,26 @@ export default function TaxAndGPFView() {
           {/* Card 2: Net Tax Summary */}
           <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 border border-slate-200 dark:border-slate-800 shadow-xs">
             <h3 className="font-bold text-slate-900 dark:text-white text-base mb-4">
-              สรุปภาษีสุทธิประจำปี พ.ศ. ๒๕๖๙
+              สรุปภาษีสุทธิประจำปี พ.ศ. 2569
             </h3>
 
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800">
-                <span className="text-xs text-slate-500">๑. ภาษีคำนวณทั้งปี</span>
+                <span className="text-xs text-slate-500">1. ภาษีคำนวณทั้งปี</span>
                 <div className="text-xl font-bold text-rose-600 dark:text-rose-400 mt-1">
                   {formatCurrency(taxResult.computedTax)} ฿
                 </div>
               </div>
 
               <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800">
-                <span className="text-xs text-slate-500">๒. หัก ณ ที่จ่ายแล้ว</span>
+                <span className="text-xs text-slate-500">2. หัก ณ ที่จ่ายแล้ว</span>
                 <div className="text-xl font-bold text-slate-700 dark:text-slate-300 mt-1">
                   -{formatCurrency(taxResult.taxPaidWithheld)} ฿
                 </div>
               </div>
 
               <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800">
-                <span className="text-xs text-slate-500">๓. เครดิตภาษีปันผล</span>
+                <span className="text-xs text-slate-500">3. เครดิตภาษีปันผล</span>
                 <div className="text-xl font-bold text-blue-600 dark:text-blue-400 mt-1">
                   -{formatCurrency(includeDividends ? taxResult.dividendTaxCredit : 0)} ฿
                 </div>
@@ -286,7 +286,7 @@ export default function TaxAndGPFView() {
                   : 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-900'
               }`}>
                 <span className="text-xs font-medium text-slate-700 dark:text-slate-300">
-                  ๔. {taxResult.netTaxPayableOrRefund > 0 ? 'ภาษีที่ต้องจ่ายเพิ่ม' : 'ภาษีที่ได้รับคืน'}
+                  4. {taxResult.netTaxPayableOrRefund > 0 ? 'ภาษีที่ต้องจ่ายเพิ่ม' : 'ภาษีที่ได้รับคืน'}
                 </span>
                 <div className={`text-xl font-extrabold mt-1 ${
                   taxResult.netTaxPayableOrRefund > 0
@@ -433,12 +433,12 @@ export default function TaxAndGPFView() {
                 {formatCurrency(taxResult.gpfDeduction)} <span className="text-lg font-normal text-emerald-200">฿</span>
               </h2>
               <p className="text-xs text-emerald-200/80 mt-1">
-                สะสมตามกฎหมาย ๓% + ออมเพิ่ม (รวม {gpfItems.length} รายการบันทึก)
+                สะสมตามกฎหมาย 3% + ออมเพิ่ม (รวม {gpfItems.length} รายการบันทึก)
               </p>
             </div>
 
             <div className="bg-white/10 backdrop-blur-xs p-4 rounded-xl border border-white/20 text-right">
-              <span className="text-xs text-emerald-200">เพดานสิทธิ์ กบข. ตามกฎหมาย (๓๐% ไม่เกิน ๕ แสน)</span>
+              <span className="text-xs text-emerald-200">เพดานสิทธิ์ กบข. ตามกฎหมาย (30% ไม่เกิน 5 แสน)</span>
               <div className="text-xl font-bold">500,000.00 ฿</div>
               <span className="text-[11px] text-emerald-300">
                 เหลือสิทธิ์เพิ่มเติม: {formatCurrency(500000 - taxResult.gpfDeduction)} ฿
@@ -503,7 +503,7 @@ export default function TaxAndGPFView() {
           <div className="flex items-center justify-between mb-4">
             <div>
               <h3 className="font-bold text-slate-900 dark:text-white text-base">
-                อัตราภาษีเงินได้บุคคลธรรมดาแบบขั้นบันได (ภ.ง.ด. ๙๐/๙๑)
+                อัตราภาษีเงินได้บุคคลธรรมดาแบบขั้นบันได (ภ.ง.ด. 90/91)
               </h3>
               <p className="text-xs text-slate-500 mt-0.5">
                 ฐานเงินได้สุทธิคำนวณภาษี: <span className="font-bold text-slate-900 dark:text-white">{formatCurrency(taxResult.netTaxableIncome)} ฿</span>

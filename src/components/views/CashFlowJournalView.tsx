@@ -215,7 +215,7 @@ export default function CashFlowJournalView() {
     e.preventDefault();
     const parsedAmount = parseFloat(entryAmount);
     if (!entryTitle || isNaN(parsedAmount) || parsedAmount <= 0) {
-      alert('กรุณากรอกชื่อรายการและจำนวนเงินที่ถูกต้อง (ทศนิยม ๒ ตำแหน่ง)');
+      alert('กรุณากรอกชื่อรายการและจำนวนเงินที่ถูกต้อง (ทศนิยม 2 ตำแหน่ง)');
       return;
     }
 
@@ -336,18 +336,18 @@ export default function CashFlowJournalView() {
         date: new Date(entryDate).toISOString(),
         type: 'รับเงิน (รายได้)',
         smartType: 'STANDARD',
-        title: revTitle || `เงินปันผลหุ้นไทย${stockText} (ม.๔๗ ทวิ)`,
+        title: revTitle || `เงินปันผลหุ้นไทย${stockText} (ม.47 ทวิ)`,
         amount: dividendCalc.net, // Cash received in bank
         debitAccountName: depositAsset?.name || 'บัญชีรับเงินปันผล',
-        creditAccountName: 'รายได้เงินปันผล ๔๐(๔)(ข)',
-        revenueCategory: '๔๐(๔)(ข) ปันผลหุ้นไทย',
+        creditAccountName: 'รายได้เงินปันผล 40(4)(ข)',
+        revenueCategory: '40(4)(ข) ปันผลหุ้นไทย',
         stockSymbol: revStockSymbol || undefined,
         grossDividendAmount: dividendCalc.gross,
         dividendTaxCreditAmount: dividendCalc.taxCredit,
         corporateTaxRatePercent: dividendCalc.corpRate,
         withholdingTaxAmount: dividendCalc.withholding,
         sourceAssetId: revDepositAssetId || undefined,
-        note: revNote || `Gross ฿${formatCurrency(dividendCalc.gross)}, หัก ๑๐% ฿${formatCurrency(dividendCalc.withholding)}, เครดิตภาษี ฿${formatCurrency(dividendCalc.taxCredit)}`,
+        note: revNote || `Gross ฿${formatCurrency(dividendCalc.gross)}, หัก 10% ฿${formatCurrency(dividendCalc.withholding)}, เครดิตภาษี ฿${formatCurrency(dividendCalc.taxCredit)}`,
       });
     } else {
       const parsedAmount = parseFloat(revGrossAmount);
@@ -418,7 +418,7 @@ export default function CashFlowJournalView() {
             สมุดรายวันและกระแสเงินสด (Cash Flow Journal)
           </h1>
           <p className="text-sm text-slate-500 mt-1">
-            บันทึกรายการบัญชีคู่ (Double-Entry) พร้อมระบบแยกหมวดภาษี ๔๐(๑)-๔๐(๘), เครดิตภาษีปันผล และ Smart Balance Sync
+            บันทึกรายการบัญชีคู่ (Double-Entry) พร้อมระบบแยกหมวดภาษี 40(1)-40(8), เครดิตภาษีปันผล และ Smart Balance Sync
           </p>
         </div>
 
@@ -675,11 +675,11 @@ export default function CashFlowJournalView() {
                       {entry.grossDividendAmount ? (
                         <div className="col-span-2 bg-emerald-50/50 dark:bg-emerald-950/20 p-2.5 rounded-lg border border-emerald-200 dark:border-emerald-900/40">
                           <span className="font-bold text-emerald-800 dark:text-emerald-300">
-                            ข้อมูลเครดิตภาษีเงินปันผล (ม.๔๗ ทวิ):
+                            ข้อมูลเครดิตภาษีเงินปันผล (ม.47 ทวิ):
                           </span>
                           <div className="grid grid-cols-3 gap-2 mt-1 text-slate-700 dark:text-slate-300">
                             <div>ยอด Gross: ฿{formatCurrency(entry.grossDividendAmount)}</div>
-                            <div>หัก ณ ที่จ่าย ๑๐%: ฿{formatCurrency(entry.withholdingTaxAmount || 0)}</div>
+                            <div>หัก ณ ที่จ่าย 10%: ฿{formatCurrency(entry.withholdingTaxAmount || 0)}</div>
                             <div className="font-bold text-emerald-600">
                               เครดิตภาษี ({entry.corporateTaxRatePercent || 20}%): +฿{formatCurrency(entry.dividendTaxCreditAmount || 0)}
                             </div>
@@ -1246,7 +1246,7 @@ export default function CashFlowJournalView() {
                   <div className="p-4 bg-emerald-50/50 dark:bg-emerald-950/20 rounded-xl border border-emerald-200 dark:border-emerald-900/50 space-y-3">
                     <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-800 dark:text-emerald-300">
                       <Calculator size={15} />
-                      คำนวณเครดิตภาษีเงินปันผลหุ้นไทย (มาตรา ๔๗ ทวิ)
+                      คำนวณเครดิตภาษีเงินปันผลหุ้นไทย (มาตรา 47 ทวิ)
                     </div>
 
                     <div className="grid grid-cols-2 gap-3">
@@ -1320,7 +1320,7 @@ export default function CashFlowJournalView() {
                     {dividendCalc && dividendCalc.gross > 0 && (
                       <div className="bg-white dark:bg-slate-900 p-3 rounded-lg border border-emerald-100 dark:border-emerald-900 text-xs space-y-1.5">
                         <div className="flex justify-between text-slate-600 dark:text-slate-300">
-                          <span>ภาษีหัก ณ ที่จ่าย ๑๐% (จ่ายแล้ว):</span>
+                          <span>ภาษีหัก ณ ที่จ่าย 10% (จ่ายแล้ว):</span>
                           <span className="font-semibold text-rose-600">
                             -฿{formatCurrency(dividendCalc.withholding)}
                           </span>
@@ -1332,7 +1332,7 @@ export default function CashFlowJournalView() {
                           </span>
                         </div>
                         <div className="flex justify-between text-emerald-700 dark:text-emerald-400 font-medium">
-                          <span>เครดิตภาษี ม.๔๗ ทวิ ({dividendCalc.corpRate}%):</span>
+                          <span>เครดิตภาษี ม.47 ทวิ ({dividendCalc.corpRate}%):</span>
                           <span className="font-bold">
                             +฿{formatCurrency(dividendCalc.taxCredit)}
                           </span>
@@ -1451,7 +1451,7 @@ export default function CashFlowJournalView() {
                   <span className="font-bold flex items-center gap-1.5 mb-1">
                     <CheckCircle2 size={15} /> ตัวช่วยบันทึกสลิปเงินเดือนข้าราชการแบบครบวงจร
                   </span>
-                  ระบบจะแยกรายการบันทึกบัญชีอัตโนมัติ: เงินเดือน ๔๐(๑), ภาษีหัก ณ ที่จ่าย, กบข. บังคับ+สะสมเพิ่ม, หุ้นสหกรณ์, ชำระหนี้ และนำยอดสุทธิฝากเข้าบัญชีธนาคารในคลิกเดียว
+                  ระบบจะแยกรายการบันทึกบัญชีอัตโนมัติ: เงินเดือน 40(1), ภาษีหัก ณ ที่จ่าย, กบข. บังคับ+สะสมเพิ่ม, หุ้นสหกรณ์, ชำระหนี้ และนำยอดสุทธิฝากเข้าบัญชีธนาคารในคลิกเดียว
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
@@ -1471,7 +1471,7 @@ export default function CashFlowJournalView() {
 
                   <div>
                     <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
-                      ภาษีหัก ณ ที่จ่าย ภ.ง.ด.๑
+                      ภาษีหัก ณ ที่จ่าย ภ.ง.ด.1
                     </label>
                     <input
                       type="number"
@@ -1486,7 +1486,7 @@ export default function CashFlowJournalView() {
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
-                      กบข. สะสมตามกฎหมาย (๓%)
+                      กบข. สะสมตามกฎหมาย (3%)
                     </label>
                     <input
                       type="number"

@@ -1,4 +1,4 @@
-// Financial Health Engine according to CFP, SET, and Thai Civil Servant Standards (พ.ศ. ๒๕๖๙)
+// Financial Health Engine according to CFP, SET, and Thai Civil Servant Standards (พ.ศ. 2569)
 import {
   Asset,
   Liability,
@@ -18,7 +18,7 @@ export function calculateFinancialHealth(
   journalEntries: JournalEntry[],
   taxItems: TaxItem[],
   profile: UserProfile,
-  selectedYear: number = 2026 // พ.ศ. ๒๕๖๙
+  selectedYear: number = 2026 // พ.ศ. 2569
 ): FinancialHealthReport {
   const usdRate = profile.usdToThbRate || 36.5;
 
@@ -156,11 +156,11 @@ export function calculateFinancialHealth(
     value: basicLiquidityVal,
     unit: 'เท่า (เดือน)',
     formattedValue: `${basicLiquidityVal.toFixed(1)} เดือน`,
-    benchmarkText: 'เกณฑ์มาตรฐาน: ๓.๐ – ๖.๐ เดือน',
+    benchmarkText: 'เกณฑ์มาตรฐาน: 3.0 – 6.0 เดือน',
     status: basicLiquidityStatus,
     score: Math.round(basicLiquidityScore),
     civilServantNote:
-      'ข้าราชการมีรายได้มั่นคงต่อเนื่อง แนะนำสำรองเงินสดฉุกเฉินอย่างน้อย ๓ – ๖ เท่าของค่าใช้จ่ายรายเดือน',
+      'ข้าราชการมีรายได้มั่นคงต่อเนื่อง แนะนำสำรองเงินสดฉุกเฉินอย่างน้อย 3 – 6 เท่าของค่าใช้จ่ายรายเดือน',
     academicRationale:
       'รองรับเหตุฉุกเฉินโดยไม่ต้องกู้หนี้ยืมสินหรือขายสินทรัพย์ลงทุนในภาวะตลาดตกต่ำ',
   };
@@ -193,14 +193,14 @@ export function calculateFinancialHealth(
     value: dsrVal,
     unit: '%',
     formattedValue: `${dsrVal.toFixed(1)}%`,
-    benchmarkText: 'เกณฑ์มาตรฐาน: ไม่ควรเกิน ๓๕% (คงเหลือสุทธิ ≥ ๓๐%)',
+    benchmarkText: 'เกณฑ์มาตรฐาน: ไม่ควรเกิน 35% (คงเหลือสุทธิ ≥ 30%)',
     status: dsrStatus,
     score: Math.round(dsrScore),
     civilServantNote: `เงินได้สุทธิคงเหลือจ่ายจริงอยู่ที่ ${netRemainingIncomePercent.toFixed(
       1
-    )}% (ระเบียบกระทรวงการคลัง/สหกรณ์กำหนดไม่น้อยกว่า ๓๐%)`,
+    )}% (ระเบียบกระทรวงการคลัง/สหกรณ์กำหนดไม่น้อยกว่า 30%)`,
     academicRationale:
-      'หาก DSR เกิน ๔๐-๕๐% จะเริ่มกระทบสภาพคล่องและเสี่ยงต่อการก่อหนี้หมุนเวียน',
+      'หาก DSR เกิน 40-50% จะเริ่มกระทบสภาพคล่องและเสี่ยงต่อการก่อหนี้หมุนเวียน',
   };
 
   // 4.3 Savings Ratio
@@ -229,12 +229,12 @@ export function calculateFinancialHealth(
     value: savingsVal,
     unit: '%',
     formattedValue: `${savingsVal.toFixed(1)}%`,
-    benchmarkText: 'เกณฑ์มาตรฐาน: ≥ ๒๐% (ระดับยอดเยี่ยม ≥ ๓๐%)',
+    benchmarkText: 'เกณฑ์มาตรฐาน: ≥ 20% (ระดับยอดเยี่ยม ≥ 30%)',
     status: savingsStatus,
     score: Math.round(savingsScore),
-    civilServantNote: `อัตราสะสม กบข. ปัจจุบัน ${profile.gpfRatePercent || 3}% (สามารถเพิ่มได้สูงสุดถึง ๓๐% เพื่อลดหย่อนภาษี)`,
+    civilServantNote: `อัตราสะสม กบข. ปัจจุบัน ${profile.gpfRatePercent || 3}% (สามารถเพิ่มได้สูงสุดถึง 30% เพื่อลดหย่อนภาษี)`,
     academicRationale:
-      'การออมสม่ำเสมออย่างน้อย ๒๐-๓๐% ช่วยการันตีความเพียงพอของเงินทุนหลังเกษียณอายุ',
+      'การออมสม่ำเสมออย่างน้อย 20-30% ช่วยการันตีความเพียงพอของเงินทุนหลังเกษียณอายุ',
   };
 
   // 4.4 Debt to Asset Ratio
@@ -261,7 +261,7 @@ export function calculateFinancialHealth(
     value: deVal,
     unit: '%',
     formattedValue: `${deVal.toFixed(1)}%`,
-    benchmarkText: 'เกณฑ์มาตรฐาน: ไม่ควรเกิน ๕๐% (ปลอดภัยสูง ≤ ๓๐%)',
+    benchmarkText: 'เกณฑ์มาตรฐาน: ไม่ควรเกิน 50% (ปลอดภัยสูง ≤ 30%)',
     status: deStatus,
     score: Math.round(deScore),
     civilServantNote:
@@ -296,13 +296,13 @@ export function calculateFinancialHealth(
     value: survivalVal,
     unit: 'เท่า',
     formattedValue: `${survivalVal.toFixed(2)} เท่า`,
-    benchmarkText: 'เกณฑ์มาตรฐาน: ≥ ๑.๐ เท่า (มีอิสรภาพทางการเงิน)',
+    benchmarkText: 'เกณฑ์มาตรฐาน: ≥ 1.0 เท่า (มีอิสรภาพทางการเงิน)',
     status: survivalStatus,
     score: Math.round(survivalScore),
     civilServantNote:
       'รายได้ดอกเบี้ยและเงินปันผลสหกรณ์/หุ้น/กองทุน ที่เข้ามาเสริมเงินเดือนประจำ',
     academicRationale:
-      'หากถึง ๑.๐ เท่า จะครอบคลุมค่าใช้จ่ายได้ทั้งหมดโดยไม่ต้องพึ่งพารายได้จากการทำงาน',
+      'หากถึง 1.0 เท่า จะครอบคลุมค่าใช้จ่ายได้ทั้งหมดโดยไม่ต้องพึ่งพารายได้จากการทำงาน',
   };
 
   // -------------------------------------------------------------
@@ -340,7 +340,7 @@ export function calculateFinancialHealth(
     prescriptions.push({
       id: 'p-emergency',
       type: 'EMERGENCY_FUND',
-      title: 'เติมเงินสำรองสภาพคล่องฉุกเฉินให้ครบ ๖ เดือน',
+      title: 'เติมเงินสำรองสภาพคล่องฉุกเฉินให้ครบ 6 เดือน',
       description: `ปัจจุบันมีเงินสดสำรองครอบคลุม ${basicLiquidityVal.toFixed(
         1
       )} เดือน ควรทยอยสะสมเงินสด/สลากออมสินเพิ่มอีกประมาณ ฿${gap.toLocaleString(
@@ -378,7 +378,7 @@ export function calculateFinancialHealth(
     prescriptions.push({
       id: 'p-debt',
       type: 'DEBT_OPTIMIZATION',
-      title: 'วางแผนลดภาระผ่อนหนี้สินรายเดือนให้ต่ำกว่า ๓๕%',
+      title: 'วางแผนลดภาระผ่อนหนี้สินรายเดือนให้ต่ำกว่า 35%',
       description: `ภาระผ่อนชำระหนี้รายเดือนอยู่ที่ ${dsrVal.toFixed(
         1
       )}% แนะนำให้พิจารณาโปะหนี้ดอกเบี้ยสูงก่อน หรือขอปรับโครงสร้างหนี้/รีไฟแนนซ์สหกรณ์เพื่อลดยอดผ่อนลงประมาณ ฿${excessDebtPerMonth.toLocaleString(
