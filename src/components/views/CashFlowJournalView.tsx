@@ -29,6 +29,12 @@ import {
   Camera,
   Loader2,
   FileCheck,
+  ArrowRightLeft,
+  Smartphone,
+  Coffee,
+  Utensils,
+  Scan,
+  Check,
 } from 'lucide-react';
 import {
   JournalEntry,
@@ -42,13 +48,20 @@ import {
   scanSlipWithOCR,
   ScannedMophSlip,
 } from '@/lib/mophSlipScanner';
+import {
+  ScannedBankSlip,
+  SlipTransactionCategory,
+  PRESET_KBANK_SLIP,
+  PRESET_KTB_SLIP,
+  scanBankSlipWithOCR,
+} from '@/lib/bankSlipScanner';
 
 const THAI_MONTHS = [
   'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
   'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'
 ];
 
-type ModalTab = 'STANDARD' | 'CREDIT_CARD' | 'INVESTMENT' | 'REVENUE' | 'PAYROLL';
+type ModalTab = 'STANDARD' | 'BANK_SLIP' | 'CREDIT_CARD' | 'INVESTMENT' | 'REVENUE' | 'PAYROLL';
 
 export default function CashFlowJournalView() {
   const { database, addJournalEntry, addPayrollBatch, deleteJournalEntry } = useWealth();
@@ -115,13 +128,29 @@ export default function CashFlowJournalView() {
   const [payrollOtherDeductions, setPayrollOtherDeductions] = useState<string>('0.00');
   const [payrollBankAssetId, setPayrollBankAssetId] = useState<string>('');
 
-  // Slip OCR Scanner State
+  // Salary Slip OCR Scanner State
   const [slipImagePreview, setSlipImagePreview] = useState<string | null>(null);
   const [isScanning, setIsScanning] = useState(false);
   const [scanProgress, setScanProgress] = useState(0);
   const [scanStatus, setScanStatus] = useState('');
   const [showSlipImage, setShowSlipImage] = useState(false);
   const [scannedInfo, setScannedInfo] = useState<ScannedMophSlip | null>(null);
+
+  // Bank Transfer Slip Scanner State
+  const [bankSlipImage, setBankSlipImage] = useState<string | null>(null);
+  const [isBankSlipScanning, setIsBankSlipScanning] = useState(false);
+  const [bankSlipProgress, setBankSlipProgress] = useState(0);
+  const [bankSlipStatus, setBankSlipStatus] = useState('');
+  const [scannedBankSlip, setScannedBankSlip] = useState<ScannedBankSlip | null>(null);
+  const [slipMode, setSlipMode] = useState<SlipTransactionCategory>('SELF_TRANSFER');
+  const [slipAmount, setSlipAmount] = useState('');
+  const [slipDate, setSlipDate] = useState(new Date().toISOString().slice(0, 10));
+  const [slipTitle, setSlipTitle] = useState('');
+  const [slipSourceAssetId, setSlipSourceAssetId] = useState('');
+  const [slipTargetAssetId, setSlipTargetAssetId] = useState('');
+  const [slipTargetLiabilityId, setSlipTargetLiabilityId] = useState('');
+  const [slipCategory, setSlipCategory] = useState('ค่าอาหารและเครื่องดื่ม');
+  const [slipNote, setSlipNote] = useState('');
 
   if (!database) return null;
 
@@ -485,6 +514,139 @@ export default function CashFlowJournalView() {
     }
   };
 
+  // Handlers for Bank Slip Scanner
+  const handleApplyScannedBankSlip = (scanned: ScannedBankSlip, previewUrl?: string) => {
+    setScannedBankSlip(scanned);
+    if (previewUrl) setBankSlipImage(previewUrl);
+    setSlipAmount(scanned.amount ? scanned.amount.toFixed(2) : '');
+    setSlipDate(scanned.transferDate || new Date().toISOString().slice(0, 10));
+    setSlipMode(scanned.suggestedType);
+    setSlipCategory(scanned.suggestedCategoryName);
+
+    // Auto-match source bank account in user assets
+    const matchedSource = bankAssets.find(
+      (a) =>
+        (scanned.senderBank && a.name.toLowerCase().includes(scanned.senderBank.toLowerCase())) ||
+        (scanned.senderBank.includes('กสิกร') && a.name.includes('กสิกร')) ||
+        (scanned.senderBank.includes('กรุงไทย') && a.name.includes('กรุงไทย'))
+    );
+    if (matchedSource) {
+      setSlipSourceAssetId(matchedSource.id);
+    } else if (bankAssets.length > 0) {
+      setSlipSourceAssetId(bankAssets[0].id);
+    }
+
+    // Auto-match target bank account in user assets
+    const matchedTarget = bankAssets.find(
+      (a) =>
+        a.id !== (matchedSource?.id || '') &&
+        ((scanned.recipientBankOrPromptPay && a.name.toLowerCase().includes(scanned.recipientBankOrPromptPay.toLowerCase())) ||
+          (scanned.recipientBankOrPromptPay.includes('กรุงไทย') && a.name.includes('กรุงไทย')) ||
+          (scanned.recipientBankOrPromptPay.includes('พร้อมเพย์') && a.name.includes('กรุงไทย')))
+    );
+    if (matchedTarget) {
+      setSlipTargetAssetId(matchedTarget.id);
+    } else {
+      const fallbackTarget = bankAssets.find((a) => a.id !== matchedSource?.id);
+      if (fallbackTarget) setSlipTargetAssetId(fallbackTarget.id);
+    }
+
+    // Auto-match credit card liability if CC payment
+    if (creditCardLiabilities.length > 0) {
+      setSlipTargetLiabilityId(creditCardLiabilities[0].id);
+    }
+
+    // Title and note
+    if (scanned.suggestedType === 'SELF_TRANSFER') {
+      setSlipTitle(`โอนเงินระหว่างบัญชี (${scanned.senderBank} -> ${scanned.recipientBankOrPromptPay})`);
+    } else if (scanned.suggestedType === 'CREDIT_CARD_PAYMENT') {
+      setSlipTitle(`ชำระหนี้บัตรเครดิต (${creditCardLiabilities[0]?.name || 'บัตรเครดิต'})`);
+    } else {
+      setSlipTitle(scanned.memo ? `${scanned.memo} (${scanned.senderBank})` : `ค่าใช้จ่าย (${scanned.suggestedCategoryName})`);
+    }
+    setSlipNote(scanned.memo ? `บันทึกช่วยจำ: ${scanned.memo}` : '');
+  };
+
+  const handleBankSlipFileUpload = async (file: File) => {
+    const objectUrl = URL.createObjectURL(file);
+    setBankSlipImage(objectUrl);
+    setIsBankSlipScanning(true);
+    setBankSlipProgress(10);
+    setBankSlipStatus('กำลังเตรียมโมเดล OCR อ่านสลิปโอนเงิน...');
+
+    try {
+      const scanned = await scanBankSlipWithOCR(file, (pct, status) => {
+        setBankSlipProgress(pct);
+        setBankSlipStatus(status);
+      });
+      handleApplyScannedBankSlip(scanned, objectUrl);
+    } catch (err) {
+      console.error('Failed to scan bank slip:', err);
+      alert('ไม่สามารถอ่านตัวอักษรจากสลิปได้ กรุณาลองใหม่อีกครั้ง');
+    } finally {
+      setIsBankSlipScanning(false);
+      setBankSlipProgress(100);
+      setBankSlipStatus('อ่านข้อมูลเสร็จสิ้น');
+    }
+  };
+
+  const handleSaveBankSlipEntry = (e: React.FormEvent) => {
+    e.preventDefault();
+    const amt = parseFloat(slipAmount);
+    if (!amt || amt <= 0) {
+      alert('กรุณาระบุจำนวนเงิน');
+      return;
+    }
+
+    const sourceAsset = database.assets.find((a) => a.id === slipSourceAssetId);
+    const targetAsset = database.assets.find((a) => a.id === slipTargetAssetId);
+    const targetLiability = database.liabilities.find((l) => l.id === slipTargetLiabilityId);
+
+    if (slipMode === 'SELF_TRANSFER') {
+      addJournalEntry({
+        date: slipDate,
+        type: 'โอนเงิน',
+        smartType: 'STANDARD',
+        title: slipTitle || 'โอนเงินระหว่างบัญชีตนเอง',
+        amount: amt,
+        debitAccountName: targetAsset?.name || 'บัญชีปลายทาง',
+        creditAccountName: sourceAsset?.name || 'บัญชีต้นทาง',
+        sourceAssetId: slipSourceAssetId,
+        targetAssetId: slipTargetAssetId,
+        note: slipNote || (scannedBankSlip?.memo ? `บันทึกช่วยจำ: ${scannedBankSlip.memo}` : ''),
+      });
+    } else if (slipMode === 'CREDIT_CARD_PAYMENT') {
+      addJournalEntry({
+        date: slipDate,
+        type: 'จ่ายเงิน (ค่าใช้จ่าย)',
+        smartType: 'CREDIT_CARD_PAYMENT',
+        title: slipTitle || 'ชำระหนี้บัตรเครดิต',
+        amount: amt,
+        debitAccountName: targetLiability?.name || 'หนี้บัตรเครดิต',
+        creditAccountName: sourceAsset?.name || 'บัญชีเงินฝาก',
+        sourceAssetId: slipSourceAssetId,
+        targetLiabilityId: slipTargetLiabilityId,
+        note: slipNote || (scannedBankSlip?.memo ? `บันทึกช่วยจำ: ${scannedBankSlip.memo}` : ''),
+      });
+    } else {
+      addJournalEntry({
+        date: slipDate,
+        type: 'จ่ายเงิน (ค่าใช้จ่าย)',
+        smartType: 'STANDARD',
+        title: slipTitle || 'ค่าใช้จ่ายทั่วไป',
+        amount: amt,
+        debitAccountName: slipCategory || 'ค่าใช้จ่าย',
+        creditAccountName: sourceAsset?.name || 'บัญชีเงินฝาก',
+        sourceAssetId: slipSourceAssetId,
+        note: slipNote || (scannedBankSlip?.memo ? `บันทึกช่วยจำ: ${scannedBankSlip.memo}` : ''),
+      });
+    }
+
+    setShowAddModal(false);
+    setScannedBankSlip(null);
+    setBankSlipImage(null);
+  };
+
   // Handler 5: Civil Servant Payroll Wizard Entry
   const handleCreatePayrollBatch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -524,12 +686,27 @@ export default function CashFlowJournalView() {
           </p>
         </div>
 
-        <button
-          onClick={() => setShowAddModal(true)}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium transition shadow-xs"
-        >
-          <Plus size={18} /> บันทึกรายการใหม่
-        </button>
+        <div className="flex flex-wrap items-center gap-2.5">
+          <button
+            onClick={() => {
+              setModalTab('BANK_SLIP');
+              setShowAddModal(true);
+            }}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-teal-50 hover:bg-teal-100 dark:bg-teal-950/60 dark:hover:bg-teal-900 text-teal-800 dark:text-teal-200 border border-teal-200 dark:border-teal-800 text-sm font-semibold transition shadow-xs"
+          >
+            <Camera size={18} className="text-teal-600 dark:text-teal-400" /> สแกนสลิปโอนเงิน (ใหม่)
+          </button>
+
+          <button
+            onClick={() => {
+              setModalTab('STANDARD');
+              setShowAddModal(true);
+            }}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium transition shadow-xs"
+          >
+            <Plus size={18} /> บันทึกรายการใหม่
+          </button>
+        </div>
       </div>
 
       {/* Filter Bar: Month & Year Selector + Search */}
@@ -841,6 +1018,17 @@ export default function CashFlowJournalView() {
               </button>
               <button
                 type="button"
+                onClick={() => setModalTab('BANK_SLIP')}
+                className={`flex-1 py-1.5 px-2 rounded-lg transition text-center flex items-center justify-center gap-1 ${
+                  modalTab === 'BANK_SLIP'
+                    ? 'bg-teal-600 text-white shadow-xs'
+                    : 'text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                <Camera size={13} /> สลิปโอนเงิน (ใหม่)
+              </button>
+              <button
+                type="button"
                 onClick={() => setModalTab('CREDIT_CARD')}
                 className={`flex-1 py-1.5 px-2 rounded-lg transition text-center flex items-center justify-center gap-1 ${
                   modalTab === 'CREDIT_CARD'
@@ -1051,6 +1239,419 @@ export default function CashFlowJournalView() {
                     บันทึกรายการ
                   </button>
                 </div>
+              </form>
+            )}
+
+            {/* TAB: BANK TRANSFER SLIP SCANNER */}
+            {modalTab === 'BANK_SLIP' && (
+              <form onSubmit={handleSaveBankSlipEntry} className="space-y-4">
+                {/* Upload & Preset Dropzone */}
+                <div className="bg-gradient-to-br from-teal-50 via-emerald-50 to-slate-50 dark:from-teal-950/40 dark:via-slate-900 dark:to-slate-900 p-4 rounded-2xl border border-teal-200 dark:border-teal-800 space-y-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <div className="p-2 rounded-xl bg-teal-600 text-white shadow-xs">
+                        <Scan size={18} />
+                      </div>
+                      <div>
+                        <h4 className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                          <span>สแกนสลิปโอนเงินธนาคาร (Bank Transfer Slip Scanner)</span>
+                          <span className="px-2 py-0.5 rounded-full bg-teal-100 dark:bg-teal-900 text-teal-800 dark:text-teal-300 text-[10px] font-bold">
+                            KBank / Krungthai / PromptPay
+                          </span>
+                        </h4>
+                        <p className="text-[11px] text-slate-500">
+                          อัปโหลดรูปสลิปเพื่อดึงยอดเงิน, วันที่, บันทึกช่วยจำ และเลือกประเภทรายการอัตโนมัติ
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Presets matching user's uploaded slips */}
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => handleApplyScannedBankSlip(PRESET_KBANK_SLIP, '/sample_transfer_kbank.jpg')}
+                        className="px-2.5 py-1.5 rounded-lg bg-white hover:bg-slate-50 dark:bg-slate-800 dark:hover:bg-slate-700 text-teal-700 dark:text-teal-300 border border-teal-300 dark:border-teal-700 text-[11px] font-bold transition flex items-center gap-1 shadow-xs"
+                      >
+                        <Utensils size={12} /> สลิป 1: กสิกร (ค่าข้าว 20฿)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleApplyScannedBankSlip(PRESET_KTB_SLIP, '/sample_transfer_krungthai.jpg')}
+                        className="px-2.5 py-1.5 rounded-lg bg-white hover:bg-slate-50 dark:bg-slate-800 dark:hover:bg-slate-700 text-teal-700 dark:text-teal-300 border border-teal-300 dark:border-teal-700 text-[11px] font-bold transition flex items-center gap-1 shadow-xs"
+                      >
+                        <Coffee size={12} /> สลิป 2: กรุงไทย (ค่ากาแฟ 20฿)
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Dropzone file input */}
+                  <label className="border-2 border-dashed border-teal-300 dark:border-teal-700 hover:border-teal-500 rounded-xl p-4 flex flex-col items-center justify-center cursor-pointer bg-white/60 dark:bg-slate-800/60 transition group">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) handleBankSlipFileUpload(file);
+                      }}
+                      className="hidden"
+                    />
+                    <Upload size={22} className="text-teal-600 dark:text-teal-400 group-hover:scale-110 transition mb-1" />
+                    <span className="text-xs font-semibold text-slate-700 dark:text-slate-200">
+                      คลิกเพื่อเลือกไฟล์รูปสลิป หรือลากไฟล์มาวางที่นี่
+                    </span>
+                    <span className="text-[10px] text-slate-400 mt-0.5">
+                      รองรับไฟล์ภาพ JPG, PNG จากแอปธนาคารทุกแห่ง
+                    </span>
+                  </label>
+
+                  {/* Scanning progress */}
+                  {isBankSlipScanning && (
+                    <div className="space-y-1 bg-white dark:bg-slate-800 p-3 rounded-xl border border-teal-200 dark:border-teal-700">
+                      <div className="flex items-center justify-between text-xs font-semibold text-teal-700 dark:text-teal-300">
+                        <span className="flex items-center gap-2">
+                          <Loader2 size={14} className="animate-spin" /> {bankSlipStatus}
+                        </span>
+                        <span>{bankSlipProgress}%</span>
+                      </div>
+                      <div className="w-full bg-slate-100 dark:bg-slate-700 h-2 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-teal-600 transition-all duration-300 rounded-full"
+                          style={{ width: `${bankSlipProgress}%` }}
+                        ></div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Parsed Slip Preview & Analysis Result */}
+                {scannedBankSlip && (
+                  <div className="space-y-3">
+                    {/* Information summary & Slip Image side-by-side */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                      {bankSlipImage && (
+                        <div className="bg-slate-100 dark:bg-slate-800 p-2 rounded-xl flex flex-col items-center justify-center border border-slate-200 dark:border-slate-700">
+                          <img
+                            src={bankSlipImage}
+                            alt="Slip Preview"
+                            className="max-h-44 object-contain rounded-lg shadow-xs"
+                          />
+                          <span className="text-[10px] text-slate-400 mt-1">รูปสลิปต้นทาง</span>
+                        </div>
+                      )}
+
+                      <div className={`${bankSlipImage ? 'md:col-span-2' : 'md:col-span-3'} bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 space-y-2 text-xs`}>
+                        <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-700">
+                          <span className="text-slate-500">ยอดเงินโอน:</span>
+                          <span className="text-xl font-extrabold text-teal-600 dark:text-teal-400">
+                            ฿{formatCurrency(scannedBankSlip.amount)}
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2 text-[11px]">
+                          <div>
+                            <span className="text-slate-400 block">ผู้โอน:</span>
+                            <span className="font-bold text-slate-800 dark:text-slate-200">
+                              {scannedBankSlip.senderName}
+                            </span>
+                            <span className="text-slate-500 block text-[10px]">{scannedBankSlip.senderBank}</span>
+                          </div>
+                          <div>
+                            <span className="text-slate-400 block">ผู้รับโอน:</span>
+                            <span className="font-bold text-slate-800 dark:text-slate-200">
+                              {scannedBankSlip.recipientName}
+                            </span>
+                            <span className="text-slate-500 block text-[10px]">{scannedBankSlip.recipientBankOrPromptPay}</span>
+                          </div>
+                        </div>
+
+                        <div className="pt-2 border-t border-slate-100 dark:border-slate-700 flex items-center justify-between">
+                          <span className="text-slate-500">บันทึกช่วยจำ (Memo):</span>
+                          <span className="font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950 px-2 py-0.5 rounded-md border border-emerald-200 dark:border-emerald-800">
+                            {scannedBankSlip.memo || '(ไม่ระบุ)'}
+                          </span>
+                        </div>
+
+                        {/* Status suggestion alert */}
+                        <div className="p-2.5 rounded-lg bg-teal-50 dark:bg-teal-950/60 border border-teal-200 dark:border-teal-800 text-[11px] text-teal-800 dark:text-teal-200 flex items-center gap-2">
+                          <Sparkles size={14} className="text-teal-600 shrink-0" />
+                          <span>
+                            {scannedBankSlip.isSelfTransfer
+                              ? 'ตรวจพบ: ชื่อผู้โอนและผู้รับตรงกัน (โอนเงินระหว่างบัญชีตนเอง - ความมั่งคั่งสุทธิไม่เปลี่ยน)'
+                              : scannedBankSlip.isCreditCardPayment
+                              ? 'ตรวจพบ: รายการชำระหนี้บัตรเครดิต (ตัดเงินสดและลดหนี้สิน)'
+                              : `ตรวจพบ: ค่าใช้จ่ายทั่วไป (แนะนำหมวด: ${scannedBankSlip.suggestedCategoryName})`}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 3-Way Mode Selection Buttons */}
+                    <div className="space-y-2 pt-2">
+                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                        เลือกประเภทรายการที่ต้องการบันทึก:
+                      </label>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                        {/* Option 1: Self Transfer */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSlipMode('SELF_TRANSFER');
+                            setSlipTitle(`โอนเงินระหว่างบัญชี (${scannedBankSlip.senderBank} -> ${scannedBankSlip.recipientBankOrPromptPay})`);
+                          }}
+                          className={`p-3 rounded-xl border text-left transition flex flex-col justify-between ${
+                            slipMode === 'SELF_TRANSFER'
+                              ? 'bg-teal-50 dark:bg-teal-950/60 border-teal-500 ring-2 ring-teal-500/20'
+                              : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-slate-300'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="font-bold text-xs text-teal-900 dark:text-teal-200 flex items-center gap-1.5">
+                              <ArrowRightLeft size={14} className="text-teal-600" /> 1. โอนในบัญชีตัวเอง
+                            </span>
+                            {slipMode === 'SELF_TRANSFER' && <Check size={14} className="text-teal-600" />}
+                          </div>
+                          <p className="text-[10px] text-slate-500 mt-1">
+                            ย้ายเงินระหว่างบัญชี ไม่นับเป็นรายจ่าย Net Worth คงเดิม
+                          </p>
+                        </button>
+
+                        {/* Option 2: Expense */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSlipMode('EXPENSE');
+                            setSlipTitle(scannedBankSlip.memo ? `${scannedBankSlip.memo} (${scannedBankSlip.senderBank})` : `ค่าใช้จ่าย (${scannedBankSlip.suggestedCategoryName})`);
+                          }}
+                          className={`p-3 rounded-xl border text-left transition flex flex-col justify-between ${
+                            slipMode === 'EXPENSE'
+                              ? 'bg-amber-50 dark:bg-amber-950/60 border-amber-500 ring-2 ring-amber-500/20'
+                              : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-slate-300'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="font-bold text-xs text-amber-900 dark:text-amber-200 flex items-center gap-1.5">
+                              <Utensils size={14} className="text-amber-600" /> 2. บันทึกเป็นรายจ่าย
+                            </span>
+                            {slipMode === 'EXPENSE' && <Check size={14} className="text-amber-600" />}
+                          </div>
+                          <p className="text-[10px] text-slate-500 mt-1">
+                            ตัดเงินจากบัญชี และบันทึกเป็นค่าใช้จ่ายตามบันทึกช่วยจำ
+                          </p>
+                        </button>
+
+                        {/* Option 3: Credit Card Payment */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSlipMode('CREDIT_CARD_PAYMENT');
+                            setSlipTitle(`ชำระหนี้บัตรเครดิต (${creditCardLiabilities[0]?.name || 'บัตรเครดิต'})`);
+                          }}
+                          className={`p-3 rounded-xl border text-left transition flex flex-col justify-between ${
+                            slipMode === 'CREDIT_CARD_PAYMENT'
+                              ? 'bg-rose-50 dark:bg-rose-950/60 border-rose-500 ring-2 ring-rose-500/20'
+                              : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-slate-300'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="font-bold text-xs text-rose-900 dark:text-rose-200 flex items-center gap-1.5">
+                              <CreditCard size={14} className="text-rose-600" /> 3. ชำระหนี้บัตรเครดิต
+                            </span>
+                            {slipMode === 'CREDIT_CARD_PAYMENT' && <Check size={14} className="text-rose-600" />}
+                          </div>
+                          <p className="text-[10px] text-slate-500 mt-1">
+                            ตัดเงินสดไปลดหนี้คงค้างในบัตรเครดิต ไม่นับจ่ายซ้ำ
+                          </p>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Mode-Specific Input Selectors */}
+                    <div className="p-4 bg-slate-50 dark:bg-slate-800/80 rounded-xl border border-slate-200 dark:border-slate-700 space-y-3">
+                      {/* Self Transfer Inputs */}
+                      {slipMode === 'SELF_TRANSFER' && (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                              บัญชีต้นทาง (ตัดเงินออก) *
+                            </label>
+                            <select
+                              value={slipSourceAssetId}
+                              onChange={(e) => setSlipSourceAssetId(e.target.value)}
+                              className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-xs font-medium"
+                            >
+                              <option value="">-- เลือกบัญชีต้นทาง --</option>
+                              {bankAssets.map((a) => (
+                                <option key={a.id} value={a.id}>
+                                  {a.name} ({formatCurrency(a.amountTHB)} ฿)
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+
+                          <div>
+                            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                              บัญชีปลายทาง (รับเงินเข้า) *
+                            </label>
+                            <select
+                              value={slipTargetAssetId}
+                              onChange={(e) => setSlipTargetAssetId(e.target.value)}
+                              className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-xs font-medium"
+                            >
+                              <option value="">-- เลือกบัญชีปลายทาง --</option>
+                              {bankAssets.map((a) => (
+                                <option key={a.id} value={a.id}>
+                                  {a.name} ({formatCurrency(a.amountTHB)} ฿)
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Expense Inputs */}
+                      {slipMode === 'EXPENSE' && (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                              บัญชีที่ตัดเงิน *
+                            </label>
+                            <select
+                              value={slipSourceAssetId}
+                              onChange={(e) => setSlipSourceAssetId(e.target.value)}
+                              className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-xs font-medium"
+                            >
+                              <option value="">-- เลือกบัญชีที่ตัดเงิน --</option>
+                              {bankAssets.map((a) => (
+                                <option key={a.id} value={a.id}>
+                                  {a.name} ({formatCurrency(a.amountTHB)} ฿)
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+
+                          <div>
+                            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                              หมวดหมู่รายจ่าย *
+                            </label>
+                            <select
+                              value={slipCategory}
+                              onChange={(e) => setSlipCategory(e.target.value)}
+                              className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-xs font-medium"
+                            >
+                              <option value="ค่าอาหารและเครื่องดื่ม">ค่าอาหารและเครื่องดื่ม (เช่น ค่าข้าว, ค่ากาแฟ)</option>
+                              <option value="ค่าเดินทางและยานพาหนะ">ค่าเดินทางและยานพาหนะ (ค่าน้ำมัน, รถไฟฟ้า)</option>
+                              <option value="ของใช้ในบ้าน/ส่วนตัว">ของใช้ในบ้าน/ส่วนตัว</option>
+                              <option value="สาธารณูปโภค/ค่าใช้จ่ายประจำ">สาธารณูปโภค (ค่าน้ำ, ค่าไฟ, อินเทอร์เน็ต)</option>
+                              <option value="ค่ารักษาพยาบาล/สุขภาพ">ค่ารักษาพยาบาล/สุขภาพ</option>
+                              <option value="ค่าใช้จ่ายเบ็ดเตล็ด">ค่าใช้จ่ายเบ็ดเตล็ด</option>
+                            </select>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Credit Card Payment Inputs */}
+                      {slipMode === 'CREDIT_CARD_PAYMENT' && (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                              บัญชีที่ตัดเงินสด *
+                            </label>
+                            <select
+                              value={slipSourceAssetId}
+                              onChange={(e) => setSlipSourceAssetId(e.target.value)}
+                              className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-xs font-medium"
+                            >
+                              <option value="">-- เลือกบัญชีเงินฝาก --</option>
+                              {bankAssets.map((a) => (
+                                <option key={a.id} value={a.id}>
+                                  {a.name} ({formatCurrency(a.amountTHB)} ฿)
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+
+                          <div>
+                            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                              บัตรเครดิตที่ต้องการชำระหนี้ *
+                            </label>
+                            <select
+                              value={slipTargetLiabilityId}
+                              onChange={(e) => setSlipTargetLiabilityId(e.target.value)}
+                              className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-xs font-medium"
+                            >
+                              <option value="">-- เลือกบัตรเครดิต --</option>
+                              {creditCardLiabilities.map((l) => (
+                                <option key={l.id} value={l.id}>
+                                  {l.name} (หนี้ค้าง: {formatCurrency(l.totalOutstanding)} ฿)
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Common editable fields: Date, Title, Amount, Note */}
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
+                        <div>
+                          <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                            วันที่ทำรายการ
+                          </label>
+                          <input
+                            type="date"
+                            value={slipDate}
+                            onChange={(e) => setSlipDate(e.target.value)}
+                            className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-xs font-bold"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                            ชื่อรายการที่บันทึก
+                          </label>
+                          <input
+                            type="text"
+                            value={slipTitle}
+                            onChange={(e) => setSlipTitle(e.target.value)}
+                            className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-xs font-medium"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                            จำนวนเงิน (บาท) *
+                          </label>
+                          <input
+                            type="number"
+                            step="0.01"
+                            value={slipAmount}
+                            onChange={(e) => setSlipAmount(e.target.value)}
+                            className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-xs font-extrabold text-teal-600 dark:text-teal-400"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Submit Actions */}
+                    <div className="flex items-center justify-end gap-3 pt-3">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setScannedBankSlip(null);
+                          setBankSlipImage(null);
+                        }}
+                        className="px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-400 text-xs hover:bg-slate-100 transition"
+                      >
+                        สแกนสลิปใหม่
+                      </button>
+                      <button
+                        type="submit"
+                        className="px-6 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold transition shadow-xs flex items-center gap-1.5"
+                      >
+                        <Check size={16} /> ยืนยันบันทึกรายการลงสมุดบัญชี
+                      </button>
+                    </div>
+                  </div>
+                )}
               </form>
             )}
 

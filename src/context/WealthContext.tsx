@@ -239,6 +239,23 @@ export function WealthProvider({ children }: { children: React.ReactNode }) {
             : a
         );
       }
+    } else if (newEntry.type === 'โอนเงิน') {
+      // Transfer money between two assets
+      if (newEntry.sourceAssetId) {
+        updatedAssets = updatedAssets.map((a) =>
+          a.id === newEntry.sourceAssetId
+            ? { ...a, amountTHB: Math.max(0, (a.amountTHB || 0) - newEntry.amount) }
+            : a
+        );
+      }
+      const destId = newEntry.targetAssetId || newEntry.destinationAssetID;
+      if (destId) {
+        updatedAssets = updatedAssets.map((a) =>
+          a.id === destId
+            ? { ...a, amountTHB: (a.amountTHB || 0) + newEntry.amount }
+            : a
+        );
+      }
     } else {
       // Standard transaction asset balance sync
       if (newEntry.sourceAssetId) {
