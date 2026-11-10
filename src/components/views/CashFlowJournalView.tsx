@@ -119,11 +119,11 @@ export default function CashFlowJournalView() {
   const [revNote, setRevNote] = useState('');
 
   // Civil Servant Payroll Wizard Form State
-  const [payrollGross, setPayrollGross] = useState<string>('50000.00');
-  const [payrollTax, setPayrollTax] = useState<string>('750.00');
-  const [payrollGpfMandatory, setPayrollGpfMandatory] = useState<string>('1500.00');
-  const [payrollGpfVoluntary, setPayrollGpfVoluntary] = useState<string>('5000.00');
-  const [payrollCoopShares, setPayrollCoopShares] = useState<string>('2000.00');
+  const [payrollGross, setPayrollGross] = useState<string>('0.00');
+  const [payrollTax, setPayrollTax] = useState<string>('0.00');
+  const [payrollGpfMandatory, setPayrollGpfMandatory] = useState<string>('0.00');
+  const [payrollGpfVoluntary, setPayrollGpfVoluntary] = useState<string>('0.00');
+  const [payrollCoopShares, setPayrollCoopShares] = useState<string>('0.00');
   const [payrollCoopLoan, setPayrollCoopLoan] = useState<string>('0.00');
   const [payrollOtherDeductions, setPayrollOtherDeductions] = useState<string>('0.00');
   const [payrollBankAssetId, setPayrollBankAssetId] = useState<string>('');
@@ -453,24 +453,14 @@ export default function CashFlowJournalView() {
       });
 
       setScannedInfo(result);
-      if (result.totalGrossIncome > 0) {
-        setPayrollGross(result.totalGrossIncome.toFixed(2));
-      }
-      if (result.withholdingTax > 0) {
-        setPayrollTax(result.withholdingTax.toFixed(2));
-      }
-      if (result.gpfMandatory > 0) {
-        setPayrollGpfMandatory(result.gpfMandatory.toFixed(2));
-      }
-      if (result.gpfVoluntary > 0) {
-        setPayrollGpfVoluntary(result.gpfVoluntary.toFixed(2));
-      }
-      if (result.coopShares > 0) {
-        setPayrollCoopShares(result.coopShares.toFixed(2));
-      }
-      if (result.coopLoan > 0 || result.housingLoan > 0) {
-        setPayrollCoopLoan((result.coopLoan + result.housingLoan).toFixed(2));
-      }
+      setPayrollGross((result.totalGrossIncome || 0).toFixed(2));
+      setPayrollTax((result.withholdingTax || 0).toFixed(2));
+      setPayrollGpfMandatory((result.gpfMandatory || 0).toFixed(2));
+      setPayrollGpfVoluntary((result.gpfVoluntary || 0).toFixed(2));
+      setPayrollCoopShares((result.coopShares || 0).toFixed(2));
+      setPayrollCoopLoan(((result.coopLoan || 0) + (result.housingLoan || 0)).toFixed(2));
+      setPayrollOtherDeductions((result.otherDeductions || 0).toFixed(2));
+
       if (result.transferDate) {
         setEntryDate(result.transferDate);
       }
