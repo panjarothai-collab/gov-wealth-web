@@ -331,22 +331,163 @@ export default function TaxAndGPFView() {
             </div>
 
             {/* Income & Deduction Breakdown row */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mt-4 pt-4 border-t border-slate-100 dark:border-slate-800 text-xs">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 mt-4 pt-4 border-t border-slate-100 dark:border-slate-800 text-xs">
               <div className="flex justify-between p-3 bg-slate-50 dark:bg-slate-800 rounded-xl">
                 <span className="text-slate-500">เงินได้พึงประเมินรวม:</span>
                 <span className="font-bold text-slate-900 dark:text-white">{formatCurrency(taxResult.totalGrossIncome)} ฿</span>
               </div>
               <div className="flex justify-between p-3 bg-slate-50 dark:bg-slate-800 rounded-xl">
-                <span className="text-slate-500">ลดหย่อน กบข. ({taxResult.gpfItemsCount} งวด):</span>
-                <span className="font-bold text-emerald-600">-{formatCurrency(taxResult.gpfDeduction)} ฿</span>
+                <span className="text-slate-500">หักค่าใช้จ่ายตามกฎหมาย:</span>
+                <span className="font-bold text-rose-600 dark:text-rose-400">-{formatCurrency(taxResult.totalExpenseDeduction)} ฿</span>
               </div>
               <div className="flex justify-between p-3 bg-slate-50 dark:bg-slate-800 rounded-xl">
-                <span className="text-slate-500">ลดหย่อน ThaiESG:</span>
-                <span className="font-bold text-emerald-600">-{formatCurrency(taxResult.thaiEsgDeduction)} ฿</span>
+                <span className="text-slate-500">หักค่าลดหย่อนรวม:</span>
+                <span className="font-bold text-emerald-600 dark:text-emerald-400">-{formatCurrency(taxResult.totalDeductions)} ฿</span>
               </div>
-              <div className="flex justify-between p-3 bg-slate-50 dark:bg-slate-800 rounded-xl">
-                <span className="text-slate-500">เงินได้สุทธิคำนวณภาษี:</span>
-                <span className="font-bold text-slate-900 dark:text-white">{formatCurrency(taxResult.netTaxableIncome)} ฿</span>
+              <div className="flex justify-between p-3 bg-emerald-50/50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-xl">
+                <span className="text-emerald-800 dark:text-emerald-300 font-semibold">เงินได้สุทธิคำนวณภาษี:</span>
+                <span className="font-bold text-emerald-700 dark:text-emerald-400">{formatCurrency(taxResult.netTaxableIncome)} ฿</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Card 2.1: Detailed Income by Category & Deductions Breakdown */}
+          <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 border border-slate-200 dark:border-slate-800 shadow-xs space-y-6">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div>
+                <h3 className="font-bold text-slate-900 dark:text-white text-base flex items-center gap-2">
+                  <FileText className="text-emerald-600" size={18} />
+                  แจกแจงเงินได้พึงประเมินแยกตามหมวด (ม.40(1) - 40(8)) และการหักค่าใช้จ่ายตามกฎหมาย
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  คำนวณหักค่าใช้จ่ายตามอัตราที่ประมวลรัษฎากรกำหนด สำหรับการยื่นแบบ ภ.ง.ด. 90/91
+                </p>
+              </div>
+            </div>
+
+            {/* Income Categories Table */}
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-50 dark:bg-slate-800/60 text-slate-500 dark:text-slate-400 uppercase font-medium">
+                  <tr>
+                    <th className="py-2.5 px-3 rounded-l-lg">หมวดเงินได้ตามกฎหมาย</th>
+                    <th className="py-2.5 px-3">รายละเอียดเงินได้</th>
+                    <th className="py-2.5 px-3 text-right">เงินได้พึงประเมิน (Gross)</th>
+                    <th className="py-2.5 px-3">เกณฑ์หักค่าใช้จ่ายตามกฎหมาย</th>
+                    <th className="py-2.5 px-3 text-right">ค่าใช้จ่ายที่หักได้</th>
+                    <th className="py-2.5 px-3 text-right rounded-r-lg">เงินได้หลังหักค่าใช้จ่าย</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {taxResult.revenueCategoriesList.map((cat, idx) => (
+                    <tr key={idx} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40 transition">
+                      <td className="py-3 px-3 font-bold text-emerald-800 dark:text-emerald-400">
+                        {cat.categoryCode}
+                      </td>
+                      <td className="py-3 px-3 font-medium text-slate-800 dark:text-slate-200">
+                        {cat.categoryName}
+                      </td>
+                      <td className="py-3 px-3 text-right font-bold text-slate-900 dark:text-white">
+                        {formatCurrency(cat.grossAmount)} ฿
+                      </td>
+                      <td className="py-3 px-3 text-slate-500">
+                        {cat.expenseRateText}
+                      </td>
+                      <td className="py-3 px-3 text-right font-bold text-rose-600 dark:text-rose-400">
+                        -{formatCurrency(cat.expenseDeduction)} ฿
+                      </td>
+                      <td className="py-3 px-3 text-right font-bold text-slate-900 dark:text-white">
+                        {formatCurrency(cat.netIncomeAfterExpense)} ฿
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="border-t-2 border-slate-200 dark:border-slate-700 font-bold bg-slate-50/50 dark:bg-slate-800/30">
+                    <td colSpan={2} className="py-3 px-3 text-slate-900 dark:text-white">
+                      รวมเงินได้พึงประเมินทุกหมวด
+                    </td>
+                    <td className="py-3 px-3 text-right text-slate-900 dark:text-white">
+                      {formatCurrency(taxResult.totalGrossIncome)} ฿
+                    </td>
+                    <td className="py-3 px-3 text-slate-500">รวมหักค่าใช้จ่ายตามกฎหมาย</td>
+                    <td className="py-3 px-3 text-right text-rose-600 dark:text-rose-400">
+                      -{formatCurrency(taxResult.totalExpenseDeduction)} ฿
+                    </td>
+                    <td className="py-3 px-3 text-right text-emerald-700 dark:text-emerald-400 text-sm">
+                      {formatCurrency(taxResult.totalIncomeAfterExpense)} ฿
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+
+            {/* Deductions Breakdown Table */}
+            <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
+              <h4 className="font-bold text-slate-900 dark:text-white text-sm mb-3 flex items-center gap-2">
+                <ShieldCheck className="text-emerald-600" size={17} />
+                รายการหักลดหย่อนภาษีตามกฎหมาย (Tax Deductions & Allowances)
+              </h4>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-50 dark:bg-slate-800/60 text-slate-500 dark:text-slate-400 uppercase font-medium">
+                    <tr>
+                      <th className="py-2.5 px-3 rounded-l-lg">รายการหักลดหย่อน</th>
+                      <th className="py-2.5 px-3">สิทธิประโยชน์ / คำอธิบาย</th>
+                      <th className="py-2.5 px-3">เพดานสิทธิ์ตามกฎหมาย</th>
+                      <th className="py-2.5 px-3 text-right rounded-r-lg">จำนวนเงินที่ลดหย่อน (บาท)</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                    {taxResult.deductionsList.map((item, idx) => (
+                      <tr key={idx} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40 transition">
+                        <td className="py-3 px-3 font-semibold text-slate-900 dark:text-white">
+                          {item.name}
+                        </td>
+                        <td className="py-3 px-3 text-slate-500">
+                          {item.note || '-'}
+                        </td>
+                        <td className="py-3 px-3 text-emerald-700 dark:text-emerald-400 font-medium">
+                          {item.maxCapText || '-'}
+                        </td>
+                        <td className="py-3 px-3 text-right font-bold text-emerald-600 dark:text-emerald-400">
+                          -{formatCurrency(item.amount)} ฿
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr className="border-t-2 border-slate-200 dark:border-slate-700 font-bold bg-slate-50/50 dark:bg-slate-800/30">
+                      <td colSpan={3} className="py-3 px-3 text-slate-900 dark:text-white">
+                        รวมรายการหักลดหย่อนทั้งสิ้น
+                      </td>
+                      <td className="py-3 px-3 text-right text-emerald-700 dark:text-emerald-400 text-sm">
+                        -{formatCurrency(taxResult.totalDeductions)} ฿
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </div>
+
+            {/* Final Calculation Formula Callout */}
+            <div className="bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-950/40 dark:to-teal-950/30 border border-emerald-200 dark:border-emerald-800/60 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <span className="text-xs font-bold text-emerald-900 dark:text-emerald-200 flex items-center gap-1.5">
+                  <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
+                  สูตรคำนวณเงินได้สุทธิเพื่อนำไปคำนวณภาษีตามขั้นบันได:
+                </span>
+                <p className="text-xs text-slate-600 dark:text-slate-300 mt-1">
+                  [เงินได้หลังหักค่าใช้จ่าย <strong>฿{formatCurrency(taxResult.totalIncomeAfterExpense)}</strong>] − [ค่าลดหย่อนรวม <strong>฿{formatCurrency(taxResult.totalDeductions)}</strong>] = <span className="text-emerald-800 dark:text-emerald-300 font-bold">เงินได้สุทธิคำนวณภาษี</span>
+                </p>
+              </div>
+
+              <div className="text-right shrink-0">
+                <span className="text-[11px] text-slate-500">เงินได้สุทธิคำนวณภาษี (Net Taxable Income)</span>
+                <div className="text-xl font-black text-emerald-700 dark:text-emerald-400">
+                  {formatCurrency(taxResult.netTaxableIncome)} ฿
+                </div>
               </div>
             </div>
           </div>

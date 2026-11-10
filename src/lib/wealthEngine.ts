@@ -279,12 +279,34 @@ export function calculatePortfolioAllocation(
   return { allocations, totalInvested, totalGpfValue, gpfPlan, expectedReturnInfo };
 }
 
+export interface RevenueCategoryBreakdown {
+  categoryCode: string;
+  categoryName: string;
+  grossAmount: number;
+  expenseRateText: string;
+  expenseDeduction: number;
+  netIncomeAfterExpense: number;
+}
+
+export interface TaxDeductionBreakdown {
+  name: string;
+  amount: number;
+  maxCapText?: string;
+  note?: string;
+}
+
 export interface TaxAssessmentResult {
   salaryAnnual: number;
+  rentIncomeGross: number;
+  rentExpenseDeduction: number;
+  rentIncomeNet: number;
   dividendGross: number;
   dividendWithheld: number;
+  dividendTaxCredit: number;
   dividendNetReceived: number;
   totalGrossIncome: number;
+  totalExpenseDeduction: number;
+  totalIncomeAfterExpense: number;
   standardExpenseDeduction: number;
   personalAllowance: number;
   gpfDeduction: number;
@@ -295,7 +317,7 @@ export interface TaxAssessmentResult {
   netTaxableIncome: number;
   computedTax: number;
   taxPaidWithheld: number;
-  dividendTaxCredit: number;
+  dividendTaxCreditAmount: number;
   netTaxPayableOrRefund: number; // positive = pay more, negative = refund
   taxBracketBreakdown: {
     bracket: string;
@@ -304,6 +326,8 @@ export interface TaxAssessmentResult {
     tax: number;
   }[];
   marginalTaxRatePercent: number;
+  revenueCategoriesList: RevenueCategoryBreakdown[];
+  deductionsList: TaxDeductionBreakdown[];
   dividendComparison?: {
     withDividendsRefund: number;
     withoutDividendsRefund: number;
@@ -320,7 +344,6 @@ export function calculateTaxAssessment(
   includeDividendsInAssessment: boolean = true
 ): TaxAssessmentResult {
   // 1. Income 40(1) Salary
-  // Look for 40(1) income from journal entries or fallback to profile
   const salaryJournal = journalEntries
     .filter(
       (e) =>
@@ -334,7 +357,22 @@ export function calculateTaxAssessment(
       ? salaryJournal
       : (profile.currentMonthlySalary || 0) * 12;
 
-  // 2. Dividends 40(4)
+  // 40(1) Expense deduction: 50% max 100,000 THB
+  const standardExpenseDeduction = Math.min(salaryAnnual * 0.5, 100000);
+  const salaryNetAfterExpense = Math.max(0, salaryAnnual - standardExpenseDeduction);
+
+  // 2. Income 40(5) Rent (เช่น ค่าเช่าผาผึ้ง)
+  const rentEntries = journalEntries.filter(
+    (e) =>
+      e.type === 'รับเงิน (รายได้)' &&
+      (e.revenueCategory?.includes('40(5)') || e.title.includes('ค่าเช่า') || e.title.includes('ผาผึ้ง'))
+  );
+  const rentIncomeGross = rentEntries.reduce((sum, e) => sum + e.amount, 0);
+  // Rental of houses/buildings has a 30% standard expense deduction under Section 40(5)
+  const rentExpenseDeduction = rentIncomeGross * 0.30;
+  const rentIncomeNet = Math.max(0, rentIncomeGross - rentExpenseDeduction);
+
+  // 3. Dividends 40(4)
   const dividendEntries = journalEntries.filter(
     (e) =>
       e.grossDividendAmount &&
@@ -357,12 +395,37 @@ export function calculateTaxAssessment(
     });
   }
 
-  const totalGrossIncome =
-    salaryAnnual + (includeDividendsInAssessment ? dividendGross + dividendTaxCredit : 0);
+  // 4. Other Revenue Categories (e.g. 40(2), 40(6), 40(8))
+  const otherRevenueEntries = journalEntries.filter(
+    (e) =>
+      e.type === 'รับเงิน (รายได้)' &&
+      !e.revenueCategory?.includes('40(1)') &&
+      !e.title.includes('เงินเดือน') &&
+      !e.revenueCategory?.includes('40(5)') &&
+      !e.title.includes('ค่าเช่า') &&
+      !e.title.includes('ผาผึ้ง') &&
+      !e.grossDividendAmount
+  );
+  const otherRevenueGross = otherRevenueEntries.reduce((sum, e) => sum + e.amount, 0);
+  const otherRevenueExpense = otherRevenueGross * 0.5; // default 50%
+  const otherRevenueNet = Math.max(0, otherRevenueGross - otherRevenueExpense);
 
-  // 3. Deductions
-  // Standard expense deduction: 50% max 100,000 THB for 40(1) + 40(2)
-  const standardExpenseDeduction = Math.min(salaryAnnual * 0.5, 100000);
+  const totalGrossIncome =
+    salaryAnnual +
+    rentIncomeGross +
+    otherRevenueGross +
+    (includeDividendsInAssessment ? dividendGross + dividendTaxCredit : 0);
+
+  const totalExpenseDeduction =
+    standardExpenseDeduction + rentExpenseDeduction + otherRevenueExpense;
+
+  const totalIncomeAfterExpense =
+    salaryNetAfterExpense +
+    rentIncomeNet +
+    otherRevenueNet +
+    (includeDividendsInAssessment ? dividendGross + dividendTaxCredit : 0);
+
+  // 5. Tax Deductions (ค่าลดหย่อนตามกฎหมาย)
   const personalAllowance = 60000;
 
   // GPF Deductions
@@ -394,13 +457,90 @@ export function calculateTaxAssessment(
   const otherDeductions = otherItems.reduce((sum, t) => sum + t.amount, 0);
 
   const totalDeductions =
-    standardExpenseDeduction +
     personalAllowance +
     gpfDeduction +
     thaiEsgDeduction +
     otherDeductions;
 
-  const netTaxableIncome = Math.max(0, totalGrossIncome - totalDeductions);
+  const netTaxableIncome = Math.max(0, totalIncomeAfterExpense - totalDeductions);
+
+  // Structured breakdown lists for UI display
+  const revenueCategoriesList: RevenueCategoryBreakdown[] = [
+    {
+      categoryCode: 'มาตรา 40(1)',
+      categoryName: 'เงินเดือนข้าราชการประจำปี',
+      grossAmount: salaryAnnual,
+      expenseRateText: 'หัก 50% (เพดานไม่เกิน 100,000 บาท)',
+      expenseDeduction: standardExpenseDeduction,
+      netIncomeAfterExpense: salaryNetAfterExpense,
+    },
+  ];
+
+  if (rentIncomeGross > 0) {
+    revenueCategoriesList.push({
+      categoryCode: 'มาตรา 40(5)',
+      categoryName: 'เงินได้จากการให้เช่าทรัพย์สิน (ค่าเช่าผาผึ้ง/อาคาร/สิ่งปลูกสร้าง)',
+      grossAmount: rentIncomeGross,
+      expenseRateText: 'หักค่าใช้จ่ายเป็นการเหมา 30%',
+      expenseDeduction: rentExpenseDeduction,
+      netIncomeAfterExpense: rentIncomeNet,
+    });
+  }
+
+  if (includeDividendsInAssessment && dividendGross > 0) {
+    revenueCategoriesList.push({
+      categoryCode: 'มาตรา 40(4)(ข)',
+      categoryName: 'เงินปันผลหุ้นไทย (Gross-up รวมเครดิตภาษี ม.47 ทวิ)',
+      grossAmount: dividendGross + dividendTaxCredit,
+      expenseRateText: 'กฎหมายไม่ให้หักค่าใช้จ่าย (แต่ได้เครดิตภาษี)',
+      expenseDeduction: 0,
+      netIncomeAfterExpense: dividendGross + dividendTaxCredit,
+    });
+  }
+
+  if (otherRevenueGross > 0) {
+    revenueCategoriesList.push({
+      categoryCode: 'เงินได้หมวดอื่นๆ',
+      categoryName: 'รายได้อื่นๆ ที่บันทึกในระบบ',
+      grossAmount: otherRevenueGross,
+      expenseRateText: 'หักค่าใช้จ่ายตามเกณฑ์ 50%',
+      expenseDeduction: otherRevenueExpense,
+      netIncomeAfterExpense: otherRevenueNet,
+    });
+  }
+
+  const deductionsList: TaxDeductionBreakdown[] = [
+    {
+      name: 'ค่าลดหย่อนส่วนตัวผู้มีเงินได้',
+      amount: personalAllowance,
+      maxCapText: 'ตามสิทธิตามกฎหมาย 60,000 บาท',
+      note: 'สิทธิลดหย่อนพื้นฐานสำหรับผู้มีเงินได้ทุกคน',
+    },
+    {
+      name: `เงินสะสม กบข. (${gpfItemsCount} งวด)`,
+      amount: gpfDeduction,
+      maxCapText: 'สูงสุด 30% ของเงินได้ (ไม่เกิน 500,000 บาท)',
+      note: 'เงินสะสม กบข. ภาคบังคับและออมเพิ่มที่หักจากเงินเดือน',
+    },
+  ];
+
+  if (thaiEsgDeduction > 0) {
+    deductionsList.push({
+      name: 'กองทุนรวมไทยเพื่อความยั่งยืน (ThaiESG)',
+      amount: thaiEsgDeduction,
+      maxCapText: 'สูงสุด 30% ของเงินได้ (ไม่เกิน 300,000 บาท)',
+      note: 'สิทธิลดหย่อนการลงทุน ThaiESG',
+    });
+  }
+
+  if (otherDeductions > 0) {
+    deductionsList.push({
+      name: 'สิทธิลดหย่อนอื่นๆ เพิ่มเติม',
+      amount: otherDeductions,
+      maxCapText: 'ตามเกณฑ์สรรพากร',
+      note: 'ประกันชีวิต, ดอกเบี้ยบ้าน หรือเงินบริจาค',
+    });
+  }
 
   // 4. Tax Brackets (Thailand Progressive Tax)
   const brackets = [
@@ -505,10 +645,15 @@ export function calculateTaxAssessment(
 
   return {
     salaryAnnual,
+    rentIncomeGross,
+    rentExpenseDeduction,
+    rentIncomeNet,
     dividendGross,
     dividendWithheld,
     dividendNetReceived,
     totalGrossIncome,
+    totalExpenseDeduction,
+    totalIncomeAfterExpense,
     standardExpenseDeduction,
     personalAllowance,
     gpfDeduction,
@@ -520,9 +665,12 @@ export function calculateTaxAssessment(
     computedTax,
     taxPaidWithheld,
     dividendTaxCredit,
+    dividendTaxCreditAmount: dividendTaxCredit,
     netTaxPayableOrRefund,
     taxBracketBreakdown,
     marginalTaxRatePercent,
+    revenueCategoriesList,
+    deductionsList,
     dividendComparison,
   };
 }
