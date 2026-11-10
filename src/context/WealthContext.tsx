@@ -31,6 +31,7 @@ interface WealthContextType {
   addJournalEntry: (entry: Omit<JournalEntry, 'id'>) => void;
   addPayrollBatch: (details: PayrollDetails, date: string) => void;
   deleteJournalEntry: (id: string) => void;
+  deleteTaxItem: (id: string) => void;
   importDatabase: (importedData: any) => Promise<boolean>;
   exportDatabase: () => void;
   resetDatabase: () => void;
@@ -642,19 +643,80 @@ export function WealthProvider({ children }: { children: React.ReactNode }) {
   const deleteJournalEntry = (id: string) => {
     if (!database) return;
     const target = database.journalEntries.find((e) => e.id === id);
-    let updatedTaxItems = database.taxItems;
+    if (!target) return;
 
-    if (target && target.taxDeductionTag) {
-      // Remove corresponding tax item safely matching title and amount
-      updatedTaxItems = updatedTaxItems.filter(
-        (t) => !(t.fundCode === target.title && Math.abs(t.amount - target.amount) < 0.01)
+    let updatedTaxItems = [...database.taxItems];
+    let updatedAssets = [...database.assets];
+
+    // 1. If it was a GPF deduction entry:
+    if (target.taxDeductionTag === 'กบข.' || target.title.includes('กบข')) {
+      const targetDatePrefix = target.date ? target.date.substring(0, 10) : '';
+      const matchIdx = updatedTaxItems.findIndex(
+        (t) =>
+          t.deductionType === 'กบข.' &&
+          (Math.abs(t.amount - target.amount) < 0.01 || (targetDatePrefix && t.date.startsWith(targetDatePrefix)))
       );
+      if (matchIdx >= 0) {
+        updatedTaxItems.splice(matchIdx, 1);
+      }
+      // Decrement GPF asset
+      const gpfIdx = updatedAssets.findIndex((a) => a.isGpf || a.name.includes('กบข'));
+      if (gpfIdx >= 0) {
+        updatedAssets[gpfIdx] = {
+          ...updatedAssets[gpfIdx],
+          amountTHB: Math.max(0, (updatedAssets[gpfIdx].amountTHB || 0) - target.amount),
+        };
+      }
+    } else if (target.taxDeductionTag) {
+      const matchIdx = updatedTaxItems.findIndex(
+        (t) => t.deductionType === target.taxDeductionTag && Math.abs(t.amount - target.amount) < 0.01
+      );
+      if (matchIdx >= 0) {
+        updatedTaxItems.splice(matchIdx, 1);
+      }
+    }
+
+    // 2. If it was a Coop share entry:
+    if (target.title.includes('ค่าหุ้น') && target.title.includes('สหกรณ์')) {
+      const coopIdx = updatedAssets.findIndex((a) => a.name.includes('สหกรณ์'));
+      if (coopIdx >= 0) {
+        updatedAssets[coopIdx] = {
+          ...updatedAssets[coopIdx],
+          amountTHB: Math.max(0, (updatedAssets[coopIdx].amountTHB || 0) - target.amount),
+        };
+      }
     }
 
     const updated = {
       ...database,
+      assets: updatedAssets,
       journalEntries: database.journalEntries.filter((e) => e.id !== id),
       taxItems: updatedTaxItems,
+    };
+    saveDatabase(updated);
+  };
+
+  const deleteTaxItem = (taxItemId: string) => {
+    if (!database) return;
+    const item = database.taxItems.find((t) => t.id === taxItemId);
+    if (!item) return;
+
+    let updatedAssets = [...database.assets];
+    // If it's a GPF deduction item, also reduce GPF asset balance
+    if (item.deductionType === 'กบข.') {
+      const gpfIdx = updatedAssets.findIndex((a) => a.isGpf || a.name.includes('กบข'));
+      if (gpfIdx >= 0) {
+        updatedAssets[gpfIdx] = {
+          ...updatedAssets[gpfIdx],
+          amountTHB: Math.max(0, (updatedAssets[gpfIdx].amountTHB || 0) - item.amount),
+        };
+      }
+    }
+
+    const updated = {
+      ...database,
+      assets: updatedAssets,
+      taxItems: database.taxItems.filter((t) => t.id !== taxItemId),
     };
     saveDatabase(updated);
   };
@@ -721,6 +783,7 @@ export function WealthProvider({ children }: { children: React.ReactNode }) {
         addJournalEntry,
         addPayrollBatch,
         deleteJournalEntry,
+        deleteTaxItem,
         importDatabase,
         exportDatabase,
         resetDatabase,

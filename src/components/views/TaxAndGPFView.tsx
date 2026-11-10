@@ -30,10 +30,11 @@ import {
   Save,
   Check,
   Layers,
+  Trash2,
 } from 'lucide-react';
 
 export default function TaxAndGPFView() {
-  const { database, updateProfile, addAsset, updateAsset, setActiveTab } = useWealth();
+  const { database, updateProfile, addAsset, updateAsset, setActiveTab, deleteTaxItem } = useWealth();
   const [includeDividends, setIncludeDividends] = useState(true);
   const [activeSubTab, setActiveSubTab] = useState<'summary' | 'gpf' | 'simulator' | 'brackets'>('summary');
 
@@ -849,7 +850,8 @@ export default function TaxAndGPFView() {
                     <th className="py-3 px-4 rounded-l-lg">วันที่หักเงินเดือน</th>
                     <th className="py-3 px-4">ชื่อรายการ / สัดส่วน</th>
                     <th className="py-3 px-4">ประเภทลดหย่อน</th>
-                    <th className="py-3 px-4 text-right rounded-r-lg">จำนวนเงิน (บาท)</th>
+                    <th className="py-3 px-4 text-right">จำนวนเงิน (บาท)</th>
+                    <th className="py-3 px-4 text-center rounded-r-lg w-16">จัดการ</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -869,6 +871,23 @@ export default function TaxAndGPFView() {
                       <td className="py-3 px-4 text-right font-bold text-emerald-600 dark:text-emerald-400">
                         {formatCurrency(item.amount)} ฿
                       </td>
+                      <td className="py-3 px-4 text-center">
+                        <button
+                          onClick={() => {
+                            if (
+                              confirm(
+                                `ต้องการลบรายการ กบข. ประจำวันที่ ${formatBuddhistDate(item.date)} ยอด ${formatCurrency(item.amount)} บาท หรือไม่?\n\n(ระบบจะปรับลดมูลค่าพอร์ต กบข. ในงบดุลให้สอดคล้องกันโดยอัตโนมัติ)`
+                              )
+                            ) {
+                              deleteTaxItem(item.id);
+                            }
+                          }}
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition"
+                          title="ลบรายการสิทธิลดหย่อนนี้"
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -880,6 +899,7 @@ export default function TaxAndGPFView() {
                     <td className="py-3 px-4 text-right text-emerald-600 dark:text-emerald-400 text-base">
                       {formatCurrency(taxResult.gpfDeduction)} ฿
                     </td>
+                    <td></td>
                   </tr>
                 </tfoot>
               </table>

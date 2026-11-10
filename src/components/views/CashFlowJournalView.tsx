@@ -668,6 +668,22 @@ export default function CashFlowJournalView() {
       depositAssetId: payrollBankAssetId || undefined,
     };
 
+    // Prevent duplicate payroll imports for the same month
+    const targetMonthPrefix = entryDate.substring(0, 7); // e.g. "2026-07"
+    const existingInSameMonth = database?.journalEntries.some(
+      (j) => j.smartType === 'PAYROLL' && j.date && j.date.startsWith(targetMonthPrefix)
+    );
+
+    if (existingInSameMonth) {
+      if (
+        !confirm(
+          `⚠️ แจ้งเตือน: มีรายการเงินเดือนของเดือนนี้ (${targetMonthPrefix}) อยู่ในระบบแล้ว\n\nต้องการบันทึกข้อมูลสลิปนี้ซ้ำอีกครั้งหรือไม่?`
+        )
+      ) {
+        return;
+      }
+    }
+
     addPayrollBatch(details, entryDate);
     setShowAddModal(false);
   };
