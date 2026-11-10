@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useRef, useCallback } from 'react';
 import {
   Asset,
   FullWealthDatabase,
@@ -12,6 +12,9 @@ import {
   DEFAULT_GPF_PLAN,
 } from '@/types/wealth';
 import { APPLE_EPOCH_OFFSET_SECONDS } from '@/lib/wealthEngine';
+import { createClient } from '@/lib/supabase/client';
+
+export type CloudSyncStatus = 'connected' | 'connecting' | 'needs_setup' | 'offline';
 
 interface WealthContextType {
   database: FullWealthDatabase | null;
@@ -32,9 +35,17 @@ interface WealthContextType {
   exportDatabase: () => void;
   resetDatabase: () => void;
   clearAllData: () => void;
+  // Supabase Cloud Sync
+  cloudSyncStatus: CloudSyncStatus;
+  isSyncing: boolean;
+  lastCloudSync: Date | null;
+  cloudSyncError: string | null;
+  syncToCloud: () => Promise<boolean>;
+  pullFromCloud: () => Promise<boolean>;
 }
 
 const LOCAL_STORAGE_KEY = 'gov_wealth_database_v2';
+const VAULT_ID = 'nitat_personal_vault';
 
 const WealthContext = createContext<WealthContextType | undefined>(undefined);
 
@@ -42,6 +53,17 @@ export function WealthProvider({ children }: { children: React.ReactNode }) {
   const [database, setDatabase] = useState<FullWealthDatabase | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTabState] = useState('balance');
+
+  // Supabase Cloud Sync States
+  const [cloudSyncStatus, setCloudSyncStatus] = useState<CloudSyncStatus>('connecting');
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [lastCloudSync, setLastCloudSync] = useState<Date | null>(null);
+  const [cloudSyncError, setCloudSyncError] = useState<string | null>(null);
+
+  const databaseRef = useRef<FullWealthDatabase | null>(null);
+  useEffect(() => {
+    databaseRef.current = database;
+  }, [database]);
 
   const setActiveTab = (tab: string) => {
     setActiveTabState(tab);
@@ -52,7 +74,95 @@ export function WealthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  // Load initial database
+  // Helper: push directly to Supabase
+  const pushToSupabase = useCallback(async (dataToPush: FullWealthDatabase): Promise<boolean> => {
+    try {
+      setIsSyncing(true);
+      const supabase = createClient();
+      if (!supabase) {
+        setCloudSyncStatus('offline');
+        return false;
+      }
+
+      const { error } = await supabase.from('wealth_vault').upsert({
+        id: VAULT_ID,
+        data: dataToPush,
+        updated_at: new Date().toISOString(),
+      });
+
+      if (error) {
+        if (error.code === 'PGRST205' || error.message?.includes('schema cache') || error.message?.includes('not find')) {
+          setCloudSyncStatus('needs_setup');
+          setCloudSyncError('ยังไม่ได้สร้างตาราง wealth_vault ใน Supabase (กรุณารันคำสั่ง SQL)');
+        } else {
+          setCloudSyncError(error.message);
+        }
+        return false;
+      }
+
+      setLastCloudSync(new Date());
+      setCloudSyncStatus('connected');
+      setCloudSyncError(null);
+      return true;
+    } catch (err: any) {
+      console.error('Supabase push error:', err);
+      setCloudSyncError(err.message || 'เกิดข้อผิดพลาดในการเชื่อมต่อคลาวด์');
+      return false;
+    } finally {
+      setIsSyncing(false);
+    }
+  }, []);
+
+  // Helper: pull directly from Supabase
+  const pullFromCloud = useCallback(async (): Promise<boolean> => {
+    try {
+      setIsSyncing(true);
+      const supabase = createClient();
+      if (!supabase) {
+        setCloudSyncStatus('offline');
+        return false;
+      }
+
+      const { data, error } = await supabase
+        .from('wealth_vault')
+        .select('*')
+        .eq('id', VAULT_ID)
+        .maybeSingle();
+
+      if (error) {
+        if (error.code === 'PGRST205' || error.message?.includes('schema cache') || error.message?.includes('not find')) {
+          setCloudSyncStatus('needs_setup');
+          setCloudSyncError('ยังไม่ได้สร้างตาราง wealth_vault ใน Supabase');
+        } else {
+          setCloudSyncError(error.message);
+        }
+        return false;
+      }
+
+      if (data && data.data) {
+        const remoteDb = normalizeImportedData(data.data);
+        setDatabase(remoteDb);
+        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(remoteDb));
+        setLastCloudSync(new Date());
+        setCloudSyncStatus('connected');
+        setCloudSyncError(null);
+        return true;
+      }
+      return false;
+    } catch (err: any) {
+      console.error('Supabase pull error:', err);
+      return false;
+    } finally {
+      setIsSyncing(false);
+    }
+  }, []);
+
+  const syncToCloud = useCallback(async (): Promise<boolean> => {
+    if (!databaseRef.current) return false;
+    return await pushToSupabase(databaseRef.current);
+  }, [pushToSupabase]);
+
+  // Load initial database & Connect to Supabase
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
@@ -63,42 +173,128 @@ export function WealthProvider({ children }: { children: React.ReactNode }) {
     }
 
     async function initData() {
+      let initialLocal: FullWealthDatabase | null = null;
       try {
         const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
         if (saved) {
-          const parsed = JSON.parse(saved);
-          setDatabase(parsed);
-          setIsLoading(false);
-          return;
-        }
-
-        // Fallback: fetch seed database
-        const res = await fetch('/default_wealth_database.json');
-        if (res.ok) {
-          const data = await res.json();
-          // Normalize dates in journalEntries and taxItems
-          const normalized = normalizeImportedData(data);
-          setDatabase(normalized);
-          localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(normalized));
+          initialLocal = JSON.parse(saved);
+          setDatabase(initialLocal);
+        } else {
+          // Fallback: fetch seed database
+          const res = await fetch('/default_wealth_database.json');
+          if (res.ok) {
+            const data = await res.json();
+            const normalized = normalizeImportedData(data);
+            initialLocal = normalized;
+            setDatabase(normalized);
+            localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(normalized));
+          }
         }
       } catch (err) {
         console.error('Failed to load initial data:', err);
       } finally {
         setIsLoading(false);
       }
+
+      // Check and sync with Supabase
+      try {
+        const supabase = createClient();
+        if (!supabase) {
+          setCloudSyncStatus('offline');
+          return;
+        }
+
+        const { data, error } = await supabase
+          .from('wealth_vault')
+          .select('*')
+          .eq('id', VAULT_ID)
+          .maybeSingle();
+
+        if (error) {
+          if (error.code === 'PGRST205' || error.message?.includes('schema cache') || error.message?.includes('not find')) {
+            setCloudSyncStatus('needs_setup');
+            setCloudSyncError('ยังไม่ได้สร้างตาราง wealth_vault ใน Supabase');
+          } else {
+            setCloudSyncStatus('offline');
+            setCloudSyncError(error.message);
+          }
+        } else if (data && data.data) {
+          const remoteDb = normalizeImportedData(data.data);
+          const remoteTime = remoteDb.exportedAt || 0;
+          const localTime = initialLocal?.exportedAt || 0;
+
+          // If remote is newer than local, update local
+          if (remoteTime > localTime) {
+            setDatabase(remoteDb);
+            localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(remoteDb));
+          } else if (localTime > remoteTime && initialLocal) {
+            // Local is newer, update cloud
+            await pushToSupabase(initialLocal);
+          }
+          setCloudSyncStatus('connected');
+          setLastCloudSync(new Date());
+        } else if (initialLocal) {
+          // Cloud is empty, push local to cloud
+          await pushToSupabase(initialLocal);
+          setCloudSyncStatus('connected');
+          setLastCloudSync(new Date());
+        }
+
+        // Setup Supabase Realtime WebSocket subscription
+        const channel = supabase
+          .channel('wealth_vault_realtime_sync')
+          .on(
+            'postgres_changes',
+            { event: '*', schema: 'public', table: 'wealth_vault', filter: `id=eq.${VAULT_ID}` },
+            (payload: any) => {
+              if (payload.new && payload.new.data) {
+                const incomingDb = normalizeImportedData(payload.new.data);
+                const currentLocal = databaseRef.current;
+                const incomingTime = incomingDb.exportedAt || 0;
+                const currentLocalTime = currentLocal?.exportedAt || 0;
+
+                // Only apply if incoming timestamp is newer to prevent infinite loops
+                if (!currentLocal || incomingTime > currentLocalTime) {
+                  setDatabase(incomingDb);
+                  localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(incomingDb));
+                  setLastCloudSync(new Date());
+                  setCloudSyncStatus('connected');
+                }
+              }
+            }
+          )
+          .subscribe((status) => {
+            if (status === 'SUBSCRIBED') {
+              setCloudSyncStatus('connected');
+            }
+          });
+
+        return () => {
+          supabase.removeChannel(channel);
+        };
+      } catch (cloudErr: any) {
+        console.error('Supabase init error:', cloudErr);
+      }
     }
 
     initData();
-  }, []);
+  }, [pushToSupabase]);
 
-  // Save to localStorage whenever database changes
+  // Save to localStorage whenever database changes & auto sync to Supabase
   const saveDatabase = (updated: FullWealthDatabase) => {
-    setDatabase(updated);
+    const stamped: FullWealthDatabase = {
+      ...updated,
+      exportedAt: Date.now(),
+    };
+    setDatabase(stamped);
     try {
-      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updated));
+      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(stamped));
     } catch (e) {
       console.error('Failed to save to localStorage:', e);
     }
+
+    // Auto-sync in background to Supabase
+    pushToSupabase(stamped);
   };
 
   const updateProfile = (profileUpdate: Partial<UserProfile>) => {
@@ -529,6 +725,13 @@ export function WealthProvider({ children }: { children: React.ReactNode }) {
         exportDatabase,
         resetDatabase,
         clearAllData,
+        // Supabase Cloud Sync
+        cloudSyncStatus,
+        isSyncing,
+        lastCloudSync,
+        cloudSyncError,
+        syncToCloud,
+        pullFromCloud,
       }}
     >
       {children}

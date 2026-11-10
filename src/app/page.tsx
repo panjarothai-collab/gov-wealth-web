@@ -18,10 +18,12 @@ import {
   ShieldCheck,
   Building2,
   Menu,
+  Cloud,
+  RefreshCw,
 } from 'lucide-react';
 
 function MainApp() {
-  const { activeTab, setActiveTab, database, isLoading } = useWealth();
+  const { activeTab, setActiveTab, database, isLoading, cloudSyncStatus, isSyncing } = useWealth();
 
   if (isLoading || !database) {
     return (
@@ -77,6 +79,37 @@ function MainApp() {
             <div className="text-[10px] text-emerald-800 dark:text-emerald-400 font-medium truncate mt-0.5 flex items-center gap-1">
               <Building2 size={11} /> {database.profile.organization}
             </div>
+
+            {/* Cloud Realtime Sync Status Indicator */}
+            <button
+              onClick={() => setActiveTab('settings')}
+              className="mt-2.5 w-full pt-2 border-t border-slate-200/60 dark:border-slate-700/60 flex items-center justify-between text-[10px] transition hover:opacity-80"
+              title="คลิกเพื่อจัดการระบบซิงค์คลาวด์"
+            >
+              <span className="flex items-center gap-1 text-slate-500 dark:text-slate-400">
+                <Cloud size={11} /> คลาวด์ซิงค์สด:
+              </span>
+              {cloudSyncStatus === 'connected' && (
+                <span className="inline-flex items-center gap-1 font-bold text-emerald-700 dark:text-emerald-400">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  {isSyncing ? 'กำลังซิงค์...' : 'เรียลไทม์ (Mac ↔ iPad)'}
+                </span>
+              )}
+              {cloudSyncStatus === 'needs_setup' && (
+                <span className="inline-flex items-center gap-1 font-bold text-amber-600 dark:text-amber-400">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                  รอเปิดตาราง SQL
+                </span>
+              )}
+              {cloudSyncStatus === 'connecting' && (
+                <span className="inline-flex items-center gap-1 font-semibold text-blue-600">
+                  <RefreshCw size={9} className="animate-spin" /> เชื่อมต่อ...
+                </span>
+              )}
+              {cloudSyncStatus === 'offline' && (
+                <span className="text-slate-400 font-medium">ออฟไลน์</span>
+              )}
+            </button>
           </div>
         </div>
 
@@ -124,12 +157,39 @@ function MainApp() {
           </div>
         </div>
 
-        <button
-          onClick={() => setActiveTab('settings')}
-          className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-600 text-xs font-bold"
-        >
-          {database.profile.fullName.slice(0, 2)}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setActiveTab('settings')}
+            className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-[10px] font-semibold"
+            title="สถานะคลาวด์ซิงค์"
+          >
+            {cloudSyncStatus === 'connected' && (
+              <span className="flex items-center gap-1 text-emerald-700 dark:text-emerald-400">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                ซิงค์สด
+              </span>
+            )}
+            {cloudSyncStatus === 'needs_setup' && (
+              <span className="flex items-center gap-1 text-amber-600">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                ตั้งค่า Cloud
+              </span>
+            )}
+            {cloudSyncStatus === 'connecting' && (
+              <span className="text-slate-400">เชื่อมต่อ...</span>
+            )}
+            {cloudSyncStatus === 'offline' && (
+              <span className="text-slate-400">ออฟไลน์</span>
+            )}
+          </button>
+
+          <button
+            onClick={() => setActiveTab('settings')}
+            className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-600 text-xs font-bold"
+          >
+            {database.profile.fullName.slice(0, 2)}
+          </button>
+        </div>
       </header>
 
       {/* Main Content View Container */}
