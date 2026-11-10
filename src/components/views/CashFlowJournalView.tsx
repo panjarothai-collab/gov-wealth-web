@@ -89,6 +89,7 @@ export default function CashFlowJournalView() {
   const [entryTaxTag, setEntryTaxTag] = useState('ไม่ลดหย่อน');
   const [entryNote, setEntryNote] = useState('');
   const [selectedSourceAssetId, setSelectedSourceAssetId] = useState('');
+  const [selectedTargetAssetId, setSelectedTargetAssetId] = useState('');
 
   // Credit Card Form State
   const [ccAction, setCcAction] = useState<'SPEND' | 'PAYMENT'>('SPEND');
@@ -263,27 +264,65 @@ export default function CashFlowJournalView() {
   const handleCreateStandardEntry = (e: React.FormEvent) => {
     e.preventDefault();
     const parsedAmount = parseFloat(entryAmount);
-    if (!entryTitle || isNaN(parsedAmount) || parsedAmount <= 0) {
-      alert('กรุณากรอกชื่อรายการและจำนวนเงินที่ถูกต้อง (ทศนิยม 2 ตำแหน่ง)');
+    if (isNaN(parsedAmount) || parsedAmount <= 0) {
+      alert('กรุณากรอกจำนวนเงินที่ถูกต้อง (ทศนิยม 2 ตำแหน่ง)');
       return;
     }
+
+    const sourceAsset = database.assets.find((a) => a.id === selectedSourceAssetId);
+    const targetAsset = database.assets.find((a) => a.id === selectedTargetAssetId);
+
+    if (entryType === 'โอนเงิน') {
+      if (!selectedSourceAssetId || !selectedTargetAssetId) {
+        alert('กรุณาเลือกทั้งบัญชีต้นทาง (เงินออก) และบัญชีปลายทาง (เงินเข้า)');
+        return;
+      }
+      if (selectedSourceAssetId === selectedTargetAssetId) {
+        alert('บัญชีต้นทางและบัญชีปลายทางต้องไม่ใช่บัญชีเดียวกัน');
+        return;
+      }
+    } else {
+      if (!entryTitle) {
+        alert('กรุณากรอกชื่อรายการบันทึก');
+        return;
+      }
+    }
+
+    const title =
+      entryTitle.trim() ||
+      (entryType === 'โอนเงิน'
+        ? `โอนย้ายเงิน (${sourceAsset?.name || 'ต้นทาง'} ➔ ${targetAsset?.name || 'ปลายทาง'})`
+        : 'รายการทั่วไป');
+
+    const debitAcc =
+      entryType === 'โอนเงิน'
+        ? (targetAsset ? targetAsset.name : 'บัญชีปลายทาง')
+        : (entryDebitAccount || 'บัญชีเงินสด/ธนาคาร');
+
+    const creditAcc =
+      entryType === 'โอนเงิน'
+        ? (sourceAsset ? sourceAsset.name : 'บัญชีต้นทาง')
+        : (entryCreditAccount || (entryType === 'รับเงิน (รายได้)' ? 'รายได้' : 'ค่าใช้จ่าย'));
 
     addJournalEntry({
       date: new Date(entryDate).toISOString(),
       type: entryType,
       smartType: 'STANDARD',
-      title: entryTitle,
+      title,
       amount: parseFloat(parsedAmount.toFixed(2)),
-      debitAccountName: entryDebitAccount || 'บัญชีเงินสด/ธนาคาร',
-      creditAccountName: entryCreditAccount || (entryType === 'รับเงิน (รายได้)' ? 'รายได้' : 'ค่าใช้จ่าย'),
-      taxDeductionTag: entryTaxTag !== 'ไม่ลดหย่อน' ? entryTaxTag : undefined,
+      debitAccountName: debitAcc,
+      creditAccountName: creditAcc,
+      taxDeductionTag: entryType !== 'โอนเงิน' && entryTaxTag !== 'ไม่ลดหย่อน' ? entryTaxTag : undefined,
       sourceAssetId: selectedSourceAssetId || undefined,
+      targetAssetId: entryType === 'โอนเงิน' ? selectedTargetAssetId || undefined : undefined,
       note: entryNote,
     });
 
     setEntryTitle('');
     setEntryAmount('');
     setEntryNote('');
+    setSelectedSourceAssetId('');
+    setSelectedTargetAssetId('');
     setShowAddModal(false);
   };
 
@@ -1113,122 +1152,221 @@ export default function CashFlowJournalView() {
                   ))}
                 </div>
 
-                <div>
-                  <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
-                    ชื่อรายการบันทึก *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="เช่น ค่าใช้จ่ายประจำวัน, กบข เพิ่ม, ดอกเบี้ยเงินฝาก"
-                    value={entryTitle}
-                    onChange={(e) => setEntryTitle(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs focus:ring-2 focus:ring-emerald-500"
-                  />
-                </div>
+                {entryType === 'โอนเงิน' ? (
+                  <div className="space-y-3.5 bg-emerald-50/50 dark:bg-emerald-950/20 p-4 rounded-2xl border border-emerald-200 dark:border-emerald-800/60">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                        ชื่อรายการบันทึก (ปล่อยว่างได้ ระบบจะตั้งชื่อให้อัตโนมัติ)
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="เช่น โอนย้ายเงินประจำเดือน, โอนเงินเข้าพอร์ตหุ้น"
+                        value={entryTitle}
+                        onChange={(e) => setEntryTitle(e.target.value)}
+                        className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs focus:ring-2 focus:ring-emerald-500"
+                      />
+                    </div>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
-                      จำนวนเงิน (บาท) *
-                    </label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0.01"
-                      required
-                      placeholder="0.00"
-                      value={entryAmount}
-                      onChange={(e) => setEntryAmount(e.target.value)}
-                      className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm font-bold text-emerald-600 focus:ring-2 focus:ring-emerald-500"
-                    />
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                        จำนวนเงินที่โอน (บาท) *
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0.01"
+                          required
+                          placeholder="0.00"
+                          value={entryAmount}
+                          onChange={(e) => setEntryAmount(e.target.value)}
+                          className="w-full pl-3 pr-8 py-2.5 rounded-xl border-2 border-emerald-400 dark:border-emerald-700 bg-white dark:bg-slate-800 text-base font-bold text-emerald-700 dark:text-emerald-300 focus:ring-2 focus:ring-emerald-500"
+                        />
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-emerald-600">฿</span>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-bold text-rose-700 dark:text-rose-400 mb-1">
+                          โอนออกจากบัญชี (ต้นทาง) *
+                        </label>
+                        <select
+                          required
+                          value={selectedSourceAssetId}
+                          onChange={(e) => setSelectedSourceAssetId(e.target.value)}
+                          className="w-full px-3 py-2.5 rounded-xl border border-rose-300 dark:border-rose-900 bg-white dark:bg-slate-800 text-xs font-medium text-slate-900 dark:text-white"
+                        >
+                          <option value="">-- เลือกบัญชีต้นทาง (เงินออก) --</option>
+                          {database.assets.map((a) => (
+                            <option key={a.id} value={a.id}>
+                              {a.name} (฿{formatCurrency(a.amountTHB)})
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-emerald-700 dark:text-emerald-400 mb-1">
+                          โอนเข้าบัญชี (ปลายทาง) *
+                        </label>
+                        <select
+                          required
+                          value={selectedTargetAssetId}
+                          onChange={(e) => setSelectedTargetAssetId(e.target.value)}
+                          className="w-full px-3 py-2.5 rounded-xl border border-emerald-300 dark:border-emerald-900 bg-white dark:bg-slate-800 text-xs font-medium text-slate-900 dark:text-white"
+                        >
+                          <option value="">-- เลือกบัญชีปลายทาง (เงินเข้า) --</option>
+                          {database.assets.map((a) => (
+                            <option key={a.id} value={a.id}>
+                              {a.name} (฿{formatCurrency(a.amountTHB)})
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="p-3 bg-white dark:bg-slate-800/80 rounded-xl border border-emerald-100 dark:border-emerald-900/40 text-[11px] text-slate-600 dark:text-slate-300 flex items-start gap-2">
+                      <ArrowRightLeft size={16} className="text-emerald-600 shrink-0 mt-0.5" />
+                      <div>
+                        <span className="font-bold text-slate-900 dark:text-white">Smart Balance Sync:</span>{' '}
+                        ระบบจะหักยอดเงินจากบัญชีต้นทาง และนำไปเพิ่มในบัญชีปลายทางให้อัตโนมัติ โดยไม่ถูกนับเป็นรายจ่ายสุทธิ
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                        บันทึกช่วยจำ (Note)
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="หมายเหตุเพิ่มเติม (ถ้ามี)..."
+                        value={entryNote}
+                        onChange={(e) => setEntryNote(e.target.value)}
+                        className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs"
+                      />
+                    </div>
                   </div>
+                ) : (
+                  <>
+                    <div>
+                      <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                        ชื่อรายการบันทึก *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="เช่น ค่าใช้จ่ายประจำวัน, กบข เพิ่ม, ดอกเบี้ยเงินฝาก"
+                        value={entryTitle}
+                        onChange={(e) => setEntryTitle(e.target.value)}
+                        className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs focus:ring-2 focus:ring-emerald-500"
+                      />
+                    </div>
 
-                  <div>
-                    <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
-                      หัก/เพิ่มในบัญชีเงินฝาก (Smart Sync)
-                    </label>
-                    <select
-                      value={selectedSourceAssetId}
-                      onChange={(e) => setSelectedSourceAssetId(e.target.value)}
-                      className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs"
-                    >
-                      <option value="">ไม่ระบุบัญชีเชื่อมโยง</option>
-                      {bankAssets.map((a) => (
-                        <option key={a.id} value={a.id}>
-                          {a.name} (฿{formatCurrency(a.amountTHB)})
-                        </option>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                          จำนวนเงิน (บาท) *
+                        </label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0.01"
+                          required
+                          placeholder="0.00"
+                          value={entryAmount}
+                          onChange={(e) => setEntryAmount(e.target.value)}
+                          className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm font-bold text-emerald-600 focus:ring-2 focus:ring-emerald-500"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                          หัก/เพิ่มในบัญชีเงินฝาก (Smart Sync)
+                        </label>
+                        <select
+                          value={selectedSourceAssetId}
+                          onChange={(e) => setSelectedSourceAssetId(e.target.value)}
+                          className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs"
+                        >
+                          <option value="">ไม่ระบุบัญชีเชื่อมโยง</option>
+                          {bankAssets.map((a) => (
+                            <option key={a.id} value={a.id}>
+                              {a.name} (฿{formatCurrency(a.amountTHB)})
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                          บัญชีเดบิต (เข้า)
+                        </label>
+                        <input
+                          type="text"
+                          list="account-list"
+                          placeholder="เช่น บัญชีกรุงไทย"
+                          value={entryDebitAccount}
+                          onChange={(e) => setEntryDebitAccount(e.target.value)}
+                          className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                          บัญชีเครดิต (ออก)
+                        </label>
+                        <input
+                          type="text"
+                          list="account-list"
+                          placeholder="เช่น บัญชีเงินเดือน"
+                          value={entryCreditAccount}
+                          onChange={(e) => setEntryCreditAccount(e.target.value)}
+                          className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs"
+                        />
+                      </div>
+                    </div>
+
+                    <datalist id="account-list">
+                      {availableAccounts.map((acc) => (
+                        <option key={acc} value={acc} />
                       ))}
-                    </select>
-                  </div>
-                </div>
+                    </datalist>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
-                      บัญชีเดบิต (เข้า)
-                    </label>
-                    <input
-                      type="text"
-                      list="account-list"
-                      placeholder="เช่น บัญชีกรุงไทย"
-                      value={entryDebitAccount}
-                      onChange={(e) => setEntryDebitAccount(e.target.value)}
-                      className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs"
-                    />
-                  </div>
+                    <div>
+                      <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                        การลดหย่อนภาษี
+                      </label>
+                      <select
+                        value={entryTaxTag}
+                        onChange={(e) => setEntryTaxTag(e.target.value)}
+                        className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs"
+                      >
+                        <option value="ไม่ลดหย่อน">ไม่ลดหย่อนภาษี</option>
+                        <option value="กบข.">กบข. (ตามกฎหมาย 3% หรือ สะสมเพิ่ม)</option>
+                        <option value="RMF">กองทุนรวมเพื่อการเลี้ยงชีพ (RMF)</option>
+                        <option value="ThaiESG">กองทุนรวมไทยเพื่อความยั่งยืน (ThaiESG)</option>
+                        <option value="ประกันชีวิต">เบี้ยประกันชีวิต / สุขภาพ</option>
+                        <option value="ดอกเบี้ยบ้าน">ดอกเบี้ยเงินกู้ยืมเพื่อที่อยู่อาศัย</option>
+                      </select>
+                    </div>
 
-                  <div>
-                    <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
-                      บัญชีเครดิต (ออก)
-                    </label>
-                    <input
-                      type="text"
-                      list="account-list"
-                      placeholder="เช่น บัญชีเงินเดือน"
-                      value={entryCreditAccount}
-                      onChange={(e) => setEntryCreditAccount(e.target.value)}
-                      className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs"
-                    />
-                  </div>
-                </div>
-
-                <datalist id="account-list">
-                  {availableAccounts.map((acc) => (
-                    <option key={acc} value={acc} />
-                  ))}
-                </datalist>
-
-                <div>
-                  <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
-                    การลดหย่อนภาษี
-                  </label>
-                  <select
-                    value={entryTaxTag}
-                    onChange={(e) => setEntryTaxTag(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs"
-                  >
-                    <option value="ไม่ลดหย่อน">ไม่ลดหย่อนภาษี</option>
-                    <option value="กบข.">กบข. (ตามกฎหมาย 3% หรือ สะสมเพิ่ม)</option>
-                    <option value="RMF">กองทุนรวมเพื่อการเลี้ยงชีพ (RMF)</option>
-                    <option value="ThaiESG">กองทุนรวมไทยเพื่อความยั่งยืน (ThaiESG)</option>
-                    <option value="ประกันชีวิต">เบี้ยประกันชีวิต / สุขภาพ</option>
-                    <option value="ดอกเบี้ยบ้าน">ดอกเบี้ยเงินกู้ยืมเพื่อที่อยู่อาศัย</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
-                    บันทึกช่วยจำ (Note)
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="หมายเหตุเพิ่มเติม..."
-                    value={entryNote}
-                    onChange={(e) => setEntryNote(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs"
-                  />
-                </div>
+                    <div>
+                      <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                        บันทึกช่วยจำ (Note)
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="หมายเหตุเพิ่มเติม..."
+                        value={entryNote}
+                        onChange={(e) => setEntryNote(e.target.value)}
+                        className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs"
+                      />
+                    </div>
+                  </>
+                )}
 
                 <div className="flex justify-end gap-3 pt-3">
                   <button
