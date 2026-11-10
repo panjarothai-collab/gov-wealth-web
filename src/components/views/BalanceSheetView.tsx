@@ -25,6 +25,10 @@ import {
   ShieldCheck,
   ChevronRight,
   Activity,
+  Pencil,
+  X,
+  Check,
+  Filter,
 } from 'lucide-react';
 import { Asset, AssetCategory, ASSET_CATEGORIES, Liability } from '@/types/wealth';
 
@@ -32,6 +36,46 @@ export default function BalanceSheetView() {
   const { database, addAsset, updateAsset, deleteAsset, addLiability, deleteLiability, setActiveTab } = useWealth();
   const [showAddAsset, setShowAddAsset] = useState(false);
   const [showAddLiability, setShowAddLiability] = useState(false);
+
+  // Category Filter State
+  const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<AssetCategory | 'ALL'>('ALL');
+
+  // Edit Asset Modal State
+  const [editingAsset, setEditingAsset] = useState<Asset | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editCategory, setEditCategory] = useState<AssetCategory>('1. เงินสดและเทียบเท่า');
+  const [editInstitution, setEditInstitution] = useState('');
+  const [editAmount, setEditAmount] = useState('');
+  const [editNotes, setEditNotes] = useState('');
+
+  const handleStartEdit = (asset: Asset) => {
+    setEditingAsset(asset);
+    setEditName(asset.name);
+    setEditCategory(asset.category);
+    setEditInstitution(asset.institution || '');
+    setEditAmount(asset.amountTHB.toString());
+    setEditNotes(asset.notes || '');
+  };
+
+  const handleSaveEdit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingAsset) return;
+    const parsedAmount = parseFloat(editAmount);
+    if (isNaN(parsedAmount) || parsedAmount < 0) {
+      alert('กรุณากรอกจำนวนเงินให้ถูกต้อง');
+      return;
+    }
+
+    updateAsset(editingAsset.id, {
+      name: editName.trim() || editingAsset.name,
+      category: editCategory,
+      institution: editInstitution.trim(),
+      amountTHB: parsedAmount,
+      notes: editNotes.trim(),
+    });
+
+    setEditingAsset(null);
+  };
 
   // New Asset form state
   const [newAssetName, setNewAssetName] = useState('');
@@ -428,17 +472,31 @@ export default function BalanceSheetView() {
             const meta = ASSET_CATEGORIES.find((c) => c.key === alloc.category);
             const items = database.assets.filter((a) => a.category === alloc.category);
             const percentOfTotal = totalAssets > 0 ? (alloc.currentValue / totalAssets) * 100 : 0;
+            const isSelected = selectedCategoryFilter === alloc.category;
 
             return (
               <div
                 key={alloc.category}
-                className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 shadow-xs hover:border-emerald-300 dark:hover:border-emerald-800 transition"
+                onClick={() => {
+                  setSelectedCategoryFilter((prev) => (prev === alloc.category ? 'ALL' : alloc.category));
+                }}
+                className={`cursor-pointer rounded-2xl p-5 border transition-all duration-200 select-none ${
+                  isSelected
+                    ? 'ring-2 ring-emerald-500 border-emerald-500 bg-emerald-50/40 dark:bg-emerald-950/40 shadow-md scale-[1.01]'
+                    : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-xs hover:border-emerald-300 dark:hover:border-emerald-700 hover:shadow-xs'
+                }`}
+                title={`คลิกเพื่อกรองตารางสินทรัพย์เฉพาะหมวด ${alloc.category}`}
               >
                 <div className="flex items-center justify-between">
                   <span className={`text-xs px-2.5 py-1 rounded-full font-semibold border ${meta?.twBadge || ''}`}>
                     {alloc.shortName}
                   </span>
                   <div className="flex items-center gap-1.5">
+                    {isSelected && (
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-600 text-white font-bold animate-pulse">
+                        กำลังเลือก
+                      </span>
+                    )}
                     {alloc.gpfDecomposedValue > 0 && (
                       <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 font-bold border border-emerald-200 dark:border-emerald-800">
                         +กบข.
@@ -471,7 +529,9 @@ export default function BalanceSheetView() {
                 </div>
 
                 <div className="mt-3 text-xs text-slate-500 dark:text-slate-400 flex items-center justify-between">
-                  <span>{items.length} รายการบัญชี</span>
+                  <span className={isSelected ? 'text-emerald-700 dark:text-emerald-400 font-bold' : ''}>
+                    {items.length} รายการบัญชี {isSelected ? '(คลิกเพื่อยกเลิก)' : '(คลิกเพื่อดู)'}
+                  </span>
                   <span className="text-slate-400">เป้าหมาย {alloc.targetPercent}%</span>
                 </div>
               </div>
@@ -482,10 +542,34 @@ export default function BalanceSheetView() {
 
       {/* Detailed Assets Table */}
       <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 border border-slate-200 dark:border-slate-800 shadow-xs">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-bold text-slate-900 dark:text-white">
-            รายการสินทรัพย์ทั้งหมด ({database.assets.length} รายการ)
-          </h2>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+          <div>
+            <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              {selectedCategoryFilter === 'ALL' ? (
+                <>รายการสินทรัพย์ทั้งหมด ({database.assets.length} รายการ)</>
+              ) : (
+                <>
+                  รายการสินทรัพย์: <span className="text-emerald-700 dark:text-emerald-400 font-bold">{selectedCategoryFilter}</span> ({
+                    database.assets.filter((a) => a.category === selectedCategoryFilter).length
+                  } รายการ)
+                </>
+              )}
+            </h2>
+            <p className="text-xs text-slate-500 mt-0.5">
+              {selectedCategoryFilter === 'ALL'
+                ? 'คลิกการ์ดสัดส่วน 6 หมวดด้านบนเพื่อกรองดูเฉพาะหมวด หรือกดปุ่มดินสอ ✏️ เพื่อแก้ไข/ปรับยอดเงินจริง'
+                : 'กำลังกรองแสดงเฉพาะหมวดที่เลือก คลิกการ์ดซ้ำหรือกดปุ่มเพื่อดูทั้งหมด'}
+            </p>
+          </div>
+
+          {selectedCategoryFilter !== 'ALL' && (
+            <button
+              onClick={() => setSelectedCategoryFilter('ALL')}
+              className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-semibold transition flex items-center gap-1.5 self-start sm:self-auto"
+            >
+              <X size={14} /> แสดงทั้งหมด ({database.assets.length})
+            </button>
+          )}
         </div>
 
         <div className="overflow-x-auto">
@@ -496,35 +580,53 @@ export default function BalanceSheetView() {
                 <th className="py-3 px-4">หมวดหมู่</th>
                 <th className="py-3 px-4">สถาบัน / แหล่งเงิน</th>
                 <th className="py-3 px-4 text-right">มูลค่า (บาท)</th>
-                <th className="py-3 px-4 text-center rounded-r-lg">จัดการ</th>
+                <th className="py-3 px-4 text-center rounded-r-lg w-24">จัดการ</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-              {database.assets.map((asset) => (
-                <tr key={asset.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition">
-                  <td className="py-3 px-4 font-medium text-slate-900 dark:text-white">
-                    {asset.name}
-                  </td>
-                  <td className="py-3 px-4 text-xs text-slate-600 dark:text-slate-300">
-                    {asset.category.replace(/^\d+\.\s*/, '')}
-                  </td>
-                  <td className="py-3 px-4 text-xs text-slate-500">
-                    {asset.institution || '-'}
-                  </td>
-                  <td className="py-3 px-4 text-right font-semibold text-slate-900 dark:text-white">
-                    {formatCurrency(asset.amountTHB)} ฿
-                  </td>
-                  <td className="py-3 px-4 text-center">
-                    <button
-                      onClick={() => deleteAsset(asset.id)}
-                      className="text-slate-400 hover:text-rose-500 p-1 transition"
-                      title="ลบรายการ"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </td>
-                </tr>
-              ))}
+              {database.assets
+                .filter((a) => selectedCategoryFilter === 'ALL' || a.category === selectedCategoryFilter)
+                .map((asset) => (
+                  <tr key={asset.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition">
+                    <td className="py-3 px-4 font-medium text-slate-900 dark:text-white">
+                      <div>{asset.name}</div>
+                      {asset.notes && (
+                        <div className="text-[11px] text-slate-400 mt-0.5 truncate max-w-xs">{asset.notes}</div>
+                      )}
+                    </td>
+                    <td className="py-3 px-4 text-xs text-slate-600 dark:text-slate-300">
+                      {asset.category.replace(/^\d+\.\s*/, '')}
+                    </td>
+                    <td className="py-3 px-4 text-xs text-slate-500">
+                      {asset.institution || '-'}
+                    </td>
+                    <td className="py-3 px-4 text-right font-semibold text-slate-900 dark:text-white">
+                      {formatCurrency(asset.amountTHB)} ฿
+                    </td>
+                    <td className="py-3 px-4 text-center">
+                      <div className="flex items-center justify-center gap-1">
+                        <button
+                          onClick={() => handleStartEdit(asset)}
+                          className="text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/50 p-1.5 rounded-lg transition"
+                          title="แก้ไข / ปรับยอดเงินจริง"
+                        >
+                          <Pencil size={15} />
+                        </button>
+                        <button
+                          onClick={() => {
+                            if (confirm(`คุณแน่ใจหรือไม่ว่าต้องการลบสินทรัพย์ "${asset.name}"?`)) {
+                              deleteAsset(asset.id);
+                            }
+                          }}
+                          className="text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/50 p-1.5 rounded-lg transition"
+                          title="ลบรายการ"
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
             </tbody>
           </table>
         </div>
@@ -845,6 +947,135 @@ export default function BalanceSheetView() {
                 บันทึกเข้าพอร์ตทันที
               </button>
             </div>
+          </div>
+        </div>
+      )}
+      {/* Edit Asset & Adjust Balance Modal */}
+      {editingAsset && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-in fade-in duration-150">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-emerald-100 dark:bg-emerald-950/80 text-emerald-600 flex items-center justify-center shadow-xs">
+                  <Pencil size={18} />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-900 dark:text-white text-base">
+                    แก้ไขสินทรัพย์ & ปรับยอดเงินจริง
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    ปรับยอดเงินในบัญชีให้ตรงกับความเป็นจริง (ไม่ต้องลงรายจ่ายย้อนหลัง)
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setEditingAsset(null)}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 rounded-lg"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEdit} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  ชื่อสินทรัพย์ / บัญชี *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm font-medium text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    หมวดหมู่สินทรัพย์ *
+                  </label>
+                  <select
+                    value={editCategory}
+                    onChange={(e) => setEditCategory(e.target.value as AssetCategory)}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  >
+                    {ASSET_CATEGORIES.map((cat) => (
+                      <option key={cat.key} value={cat.key}>
+                        {cat.key}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    สถาบัน / ธนาคาร
+                  </label>
+                  <input
+                    type="text"
+                    value={editInstitution}
+                    onChange={(e) => setEditInstitution(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-medium text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                </div>
+              </div>
+
+              {/* Highlighted Balance Input */}
+              <div className="bg-emerald-50/60 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/80 rounded-2xl p-4">
+                <label className="block text-xs font-bold text-emerald-900 dark:text-emerald-200 mb-1.5 flex items-center justify-between">
+                  <span>มูลค่าเงินคงเหลือจริงปัจจุบัน (บาท) *</span>
+                  <span className="text-[11px] font-normal text-emerald-700 dark:text-emerald-400">
+                    ยอดเดิม: {formatCurrency(editingAsset.amountTHB)} ฿
+                  </span>
+                </label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    step="0.01"
+                    required
+                    value={editAmount}
+                    onChange={(e) => setEditAmount(e.target.value)}
+                    className="w-full pl-4 pr-12 py-3 rounded-xl border-2 border-emerald-400 dark:border-emerald-600 bg-white dark:bg-slate-900 text-xl font-black text-emerald-800 dark:text-emerald-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-xs"
+                  />
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-bold text-emerald-600">
+                    ฿
+                  </span>
+                </div>
+                <p className="text-[11px] text-emerald-700 dark:text-emerald-400 mt-2 leading-relaxed">
+                  💡 กรอกยอดเงินที่เหลือจริงในแอปธนาคารหรือพอร์ตปัจจุบัน ระบบจะปรับปรุงยอดสินทรัพย์สุทธิและพอร์ตโฟลิโอให้ตรงทันทีโดยไม่ต้องบันทึกรายการย้อนหลัง
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  บันทึกย่อ (Notes)
+                </label>
+                <input
+                  type="text"
+                  value={editNotes}
+                  onChange={(e) => setEditNotes(e.target.value)}
+                  placeholder="เช่น ปรับยอดเงินจริงในบัญชี ณ ปัจจุบัน"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setEditingAsset(null)}
+                  className="px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-semibold text-slate-600 dark:text-slate-300 transition"
+                >
+                  ยกเลิก
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition shadow-xs flex items-center gap-1.5"
+                >
+                  <Check size={14} /> บันทึกการปรับยอด
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
