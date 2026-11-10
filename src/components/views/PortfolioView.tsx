@@ -50,7 +50,7 @@ export default function PortfolioView() {
 
   if (!database) return null;
 
-  const { allocations, totalInvested, totalGpfValue, gpfPlan, expectedReturnInfo } = calculatePortfolioAllocation(
+  const { allocations, totalInvested, totalGpfValue, gpfPlan, expectedReturnInfo, isGpfDecomposedMode } = calculatePortfolioAllocation(
     database.assets,
     {
       ...database.profile,
@@ -109,7 +109,7 @@ export default function PortfolioView() {
         </button>
       </div>
 
-      {/* GPF Look-Through Active Info Banner */}
+      {/* GPF Look-Through / Exact Plans Active Info Banner */}
       {totalGpfValue > 0 ? (
         <div className="bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/70 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs shadow-xs">
           <div className="flex items-start sm:items-center gap-3">
@@ -118,13 +118,17 @@ export default function PortfolioView() {
             </div>
             <div>
               <div className="font-bold text-emerald-900 dark:text-emerald-200 text-sm flex items-center gap-2">
-                <span>ระบบ Look-Through กบข. ทำงานอัตโนมัติ</span>
+                <span>{isGpfDecomposedMode ? 'ระบบ กบข. แยกแผนจริง (Exact Units & NAV)' : 'ระบบ Look-Through กบข. ทำงานอัตโนมัติ'}</span>
                 <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/80 text-emerald-800 dark:text-emerald-300 font-bold text-[11px] border border-emerald-300/60 dark:border-emerald-700">
-                  {gpfPlan.planName}
+                  {isGpfDecomposedMode ? 'แผนผสมจริง 3 แผน' : gpfPlan.planName}
                 </span>
               </div>
               <p className="text-emerald-700 dark:text-emerald-400 mt-0.5">
-                ยอด กบข. <b>฿{formatCurrency(totalGpfValue)}</b> ถูกกระจายเข้าพอร์ตรวมตามสัดส่วนแผนของคุณ (หุ้นไทย {gpfPlan.thaiStockPercent}%, หุ้น ตปท. {gpfPlan.foreignStockPercent}%, ทองคำ {gpfPlan.goldPercent}%) โดยไม่นับซ้ำและสะท้อนความเสี่ยงแท้จริง
+                {isGpfDecomposedMode ? (
+                  <>ยอด กบข. รวม <b>฿{formatCurrency(totalGpfValue)}</b> บันทึกแยก ๓ แผนจริงตามแอป My GPF (หุ้นไทย 35.66%, หุ้น ตปท. 38.58%, ทองคำ 25.76%) โดยคำนวณจากหน่วยและ NAV สด</>
+                ) : (
+                  <>ยอด กบข. <b>฿{formatCurrency(totalGpfValue)}</b> ถูกกระจายเข้าพอร์ตรวมตามสัดส่วนแผนของคุณ (หุ้นไทย {gpfPlan.thaiStockPercent}%, หุ้น ตปท. {gpfPlan.foreignStockPercent}%, ทองคำ {gpfPlan.goldPercent}%) โดยไม่นับซ้ำและสะท้อนความเสี่ยงแท้จริง</>
+                )}
               </p>
             </div>
           </div>

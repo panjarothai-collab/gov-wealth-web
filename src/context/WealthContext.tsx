@@ -582,28 +582,74 @@ export function WealthProvider({ children }: { children: React.ReactNode }) {
 
     // Accumulate GPF into assets
     if (totalGpf > 0) {
-      const gpfIdx = updatedAssets.findIndex(
-        (a) => a.isGpf || a.name.toLowerCase().includes('กบข') || a.institution.toLowerCase().includes('กบข')
-      );
-      if (gpfIdx >= 0) {
-        updatedAssets[gpfIdx] = {
-          ...updatedAssets[gpfIdx],
-          amountTHB: (updatedAssets[gpfIdx].amountTHB || 0) + totalGpf,
-          isGpf: true,
-        };
-      } else {
-        const plan = database.profile.gpfPlan;
-        updatedAssets.push({
-          id: crypto.randomUUID(),
-          name: 'กองทุนบำเหน็จบำนาญข้าราชการ (กบข.)',
-          category: '2. กองทุนรวมไทย',
-          institution: 'กองทุนบำเหน็จบำนาญข้าราชการ (กบข.)',
-          amountTHB: totalGpf,
-          amountUSD: 0,
-          isUSD: false,
-          notes: `สะสมจากการหักเงินเดือน (แผน กบข. Look-Through: หุ้นไทย ${plan?.thaiStockPercent ?? 35}%, หุ้น ตปท. ${plan?.foreignStockPercent ?? 40}%, ทองคำ ${plan?.goldPercent ?? 25}%)`,
-          isGpf: true,
+      const decomposedGpf = updatedAssets.filter((a) => a.isGpfDecomposed);
+      if (decomposedGpf.length > 0) {
+        const plan = database.profile.gpfPlan || DEFAULT_GPF_PLAN;
+        const thaiWeight = (plan.thaiStockPercent || 35) / 100;
+        const foreignWeight = (plan.foreignStockPercent || 40) / 100;
+        const goldWeight = (plan.goldPercent || 25) / 100;
+
+        updatedAssets = updatedAssets.map((a) => {
+          if (!a.isGpfDecomposed) return a;
+          if (a.name.includes('หุ้นไทย')) {
+            const added = Math.round(totalGpf * thaiWeight * 100) / 100;
+            const newAmount = Math.round(((a.amountTHB || 0) + added) * 100) / 100;
+            const newUnits = a.nav && a.nav > 0 ? parseFloat((newAmount / a.nav).toFixed(4)) : a.units;
+            return {
+              ...a,
+              amountTHB: newAmount,
+              units: newUnits,
+              notes: newUnits && a.nav ? `จำนวน ${newUnits.toLocaleString()} หน่วย | NAV ${a.nav.toFixed(4)} ฿ | สัดส่วน 35.66%` : a.notes
+            };
+          }
+          if (a.name.includes('หุ้นต่างประเทศ') || a.name.includes('หุ้น ตปท.')) {
+            const added = Math.round(totalGpf * foreignWeight * 100) / 100;
+            const newAmount = Math.round(((a.amountTHB || 0) + added) * 100) / 100;
+            const newUnits = a.nav && a.nav > 0 ? parseFloat((newAmount / a.nav).toFixed(4)) : a.units;
+            return {
+              ...a,
+              amountTHB: newAmount,
+              units: newUnits,
+              notes: newUnits && a.nav ? `จำนวน ${newUnits.toLocaleString()} หน่วย | NAV ${a.nav.toFixed(4)} ฿ | สัดส่วน 38.58%` : a.notes
+            };
+          }
+          if (a.name.includes('ทองคำ')) {
+            const added = Math.round(totalGpf * goldWeight * 100) / 100;
+            const newAmount = Math.round(((a.amountTHB || 0) + added) * 100) / 100;
+            const newUnits = a.nav && a.nav > 0 ? parseFloat((newAmount / a.nav).toFixed(4)) : a.units;
+            return {
+              ...a,
+              amountTHB: newAmount,
+              units: newUnits,
+              notes: newUnits && a.nav ? `จำนวน ${newUnits.toLocaleString()} หน่วย | NAV ${a.nav.toFixed(4)} ฿ | สัดส่วน 25.76%` : a.notes
+            };
+          }
+          return a;
         });
+      } else {
+        const gpfIdx = updatedAssets.findIndex(
+          (a) => a.isGpf || a.name.toLowerCase().includes('กบข') || a.institution.toLowerCase().includes('กบข')
+        );
+        if (gpfIdx >= 0) {
+          updatedAssets[gpfIdx] = {
+            ...updatedAssets[gpfIdx],
+            amountTHB: (updatedAssets[gpfIdx].amountTHB || 0) + totalGpf,
+            isGpf: true,
+          };
+        } else {
+          const plan = database.profile.gpfPlan;
+          updatedAssets.push({
+            id: crypto.randomUUID(),
+            name: 'กองทุนบำเหน็จบำนาญข้าราชการ (กบข.)',
+            category: '2. กองทุนรวมไทย',
+            institution: 'กองทุนบำเหน็จบำนาญข้าราชการ (กบข.)',
+            amountTHB: totalGpf,
+            amountUSD: 0,
+            isUSD: false,
+            notes: `สะสมจากการหักเงินเดือน (แผน กบข. Look-Through: หุ้นไทย ${plan?.thaiStockPercent ?? 35}%, หุ้น ตปท. ${plan?.foreignStockPercent ?? 40}%, ทองคำ ${plan?.goldPercent ?? 25}%)`,
+            isGpf: true,
+          });
+        }
       }
     }
 

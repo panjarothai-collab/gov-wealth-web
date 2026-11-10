@@ -95,10 +95,11 @@ export interface CategoryAllocation {
 }
 
 export function isGpfAsset(a: Asset): boolean {
+  if (a.isGpfDecomposed) return false;
   if (a.isGpf) return true;
   const name = (a.name || '').toLowerCase();
   const inst = (a.institution || '').toLowerCase();
-  return name.includes('กบข') || name.includes('gpf') || inst.includes('กบข') || inst.includes('gpf');
+  return (name.includes('กบข') || name.includes('gpf') || inst.includes('กบข') || inst.includes('gpf')) && !a.isGpfDecomposed;
 }
 
 export interface PortfolioExpectedReturnInfo {
@@ -142,6 +143,7 @@ export function calculatePortfolioAllocation(
   totalGpfValue: number;
   gpfPlan: GpfPlanWeights;
   expectedReturnInfo: PortfolioExpectedReturnInfo;
+  isGpfDecomposedMode?: boolean;
 } {
   const usdRate = profile.usdToThbRate || 36.5;
   const totalInvested = assets.reduce((sum, a) => {
@@ -176,6 +178,12 @@ export function calculatePortfolioAllocation(
   const totalGpfValue = gpfAssets.reduce((sum, a) => {
     return sum + (a.isUSD ? (a.amountUSD || 0) * usdRate : (a.amountTHB || 0));
   }, 0);
+
+  const decomposedGpfAssets = assets.filter((a) => a.isGpfDecomposed);
+  const decomposedGpfValue = decomposedGpfAssets.reduce((sum, a) => {
+    return sum + (a.isUSD ? (a.amountUSD || 0) * usdRate : (a.amountTHB || 0));
+  }, 0);
+  const totalGpfCombined = totalGpfValue + decomposedGpfValue;
 
   // GPF Look-Through Weight Map
   const gpfWeightMap: Record<AssetCategory, number> = {
@@ -276,7 +284,7 @@ export function calculatePortfolioAllocation(
     monthlyDcaBudget,
   };
 
-  return { allocations, totalInvested, totalGpfValue, gpfPlan, expectedReturnInfo };
+  return { allocations, totalInvested, totalGpfValue: totalGpfCombined, gpfPlan, expectedReturnInfo, isGpfDecomposedMode: decomposedGpfAssets.length > 0 };
 }
 
 export interface RevenueCategoryBreakdown {

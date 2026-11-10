@@ -78,6 +78,9 @@ export interface Asset {
   isUSD: boolean;
   notes: string;
   isGpf?: boolean;
+  isGpfDecomposed?: boolean;
+  units?: number;
+  nav?: number;
 }
 
 export interface Liability {

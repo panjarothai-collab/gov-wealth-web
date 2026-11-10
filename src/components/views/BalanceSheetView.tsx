@@ -400,7 +400,7 @@ export default function BalanceSheetView() {
             สัดส่วนสินทรัพย์แยก 6 หมวดมาตรฐาน
             {totalGpfValue > 0 && (
               <span className="text-xs px-2.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 font-bold border border-emerald-300 dark:border-emerald-800">
-                Look-Through กบข. Active
+                {database.assets.some((a) => a.isGpfDecomposed) ? 'กบข. แยก ๓ แผนจริง Active' : 'Look-Through กบข. Active'}
               </span>
             )}
           </h2>
@@ -589,10 +589,21 @@ export default function BalanceSheetView() {
                 .map((asset) => (
                   <tr key={asset.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition">
                     <td className="py-3 px-4 font-medium text-slate-900 dark:text-white">
-                      <div>{asset.name}</div>
-                      {asset.notes && (
+                      <div className="flex items-center gap-2">
+                        <span>{asset.name}</span>
+                        {asset.isGpfDecomposed && (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 font-bold border border-emerald-200 dark:border-emerald-800">
+                            กบข.
+                          </span>
+                        )}
+                      </div>
+                      {asset.units && asset.nav ? (
+                        <div className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium mt-0.5">
+                          {asset.units.toLocaleString(undefined, { minimumFractionDigits: 4, maximumFractionDigits: 4 })} หน่วย @ {asset.nav.toFixed(4)} ฿
+                        </div>
+                      ) : asset.notes ? (
                         <div className="text-[11px] text-slate-400 mt-0.5 truncate max-w-xs">{asset.notes}</div>
-                      )}
+                      ) : null}
                     </td>
                     <td className="py-3 px-4 text-xs text-slate-600 dark:text-slate-300">
                       {asset.category.replace(/^\d+\.\s*/, '')}
