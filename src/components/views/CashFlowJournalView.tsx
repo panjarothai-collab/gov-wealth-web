@@ -162,19 +162,9 @@ export default function CashFlowJournalView() {
     return Array.from(new Set([...fromPresets, ...fromAssets]));
   }, [database]);
 
-  // Credit Card Liabilities
+  // Credit Card & Debt Liabilities (Show all liabilities entered by user)
   const creditCardLiabilities = useMemo(() => {
-    const filtered = database.liabilities.filter(
-      (l) =>
-        l.name.toLowerCase().includes('บัตร') ||
-        l.lender.toLowerCase().includes('บัตร') ||
-        l.name.toLowerCase().includes('kb') ||
-        l.name.toLowerCase().includes('ktc') ||
-        l.name.toLowerCase().includes('card') ||
-        l.lender.toLowerCase().includes('กสิกร') ||
-        l.lender.toLowerCase().includes('กรุงไทย')
-    );
-    return filtered.length > 0 ? filtered : database.liabilities;
+    return database.liabilities;
   }, [database.liabilities]);
 
   // Bank Assets (Cash & Equivalents)
