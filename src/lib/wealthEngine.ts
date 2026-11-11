@@ -454,13 +454,40 @@ export function calculateTaxAssessment(
   const thaiEsgCap = Math.min(salaryAnnual * 0.30, 300000);
   const thaiEsgDeduction = Math.min(thaiEsgTotal, thaiEsgCap);
 
+  // RMF Deductions (Combined with GPF cap of 500,000 THB)
+  const rmfItems = taxItems.filter(
+    (t) => t.deductionType === 'RMF' || t.fundCode.toLowerCase().includes('rmf')
+  );
+  const rmfTotal = rmfItems.reduce((sum, t) => sum + t.amount, 0);
+  const rmfDeduction = Math.min(rmfTotal, Math.max(0, 500000 - gpfDeduction));
+
+  // Life Insurance Deductions (Max 100,000 THB)
+  const insuranceItems = taxItems.filter(
+    (t) => t.deductionType === 'ประกันชีวิต' || t.fundCode.toLowerCase().includes('ประกัน')
+  );
+  const insuranceTotal = insuranceItems.reduce((sum, t) => sum + t.amount, 0);
+  const insuranceDeduction = Math.min(insuranceTotal, 100000);
+
+  // Home Loan Interest Deductions (Max 100,000 THB)
+  const homeLoanItems = taxItems.filter(
+    (t) => t.deductionType === 'ดอกเบี้ยบ้าน' || t.fundCode.toLowerCase().includes('ดอกเบี้ย')
+  );
+  const homeLoanTotal = homeLoanItems.reduce((sum, t) => sum + t.amount, 0);
+  const homeLoanDeduction = Math.min(homeLoanTotal, 100000);
+
   // Other tax items
   const otherItems = taxItems.filter(
     (t) =>
       t.deductionType !== 'กบข.' &&
       t.deductionType !== 'ThaiESG' &&
+      t.deductionType !== 'RMF' &&
+      t.deductionType !== 'ประกันชีวิต' &&
+      t.deductionType !== 'ดอกเบี้ยบ้าน' &&
       !t.fundCode.toLowerCase().includes('gpf') &&
-      !t.fundCode.toLowerCase().includes('thaiesg')
+      !t.fundCode.toLowerCase().includes('thaiesg') &&
+      !t.fundCode.toLowerCase().includes('rmf') &&
+      !t.fundCode.toLowerCase().includes('ประกัน') &&
+      !t.fundCode.toLowerCase().includes('ดอกเบี้ย')
   );
   const otherDeductions = otherItems.reduce((sum, t) => sum + t.amount, 0);
 
@@ -468,6 +495,9 @@ export function calculateTaxAssessment(
     personalAllowance +
     gpfDeduction +
     thaiEsgDeduction +
+    rmfDeduction +
+    insuranceDeduction +
+    homeLoanDeduction +
     otherDeductions;
 
   const netTaxableIncome = Math.max(0, totalIncomeAfterExpense - totalDeductions);
@@ -532,6 +562,18 @@ export function calculateTaxAssessment(
     },
   ];
 
+  if (rmfDeduction > 0) {
+    const rmfNames = rmfItems.map((i) => i.assetClassName || i.fundCode).filter(Boolean);
+    const uniqueNames = Array.from(new Set(rmfNames));
+    const rmfSummary = uniqueNames.length > 0 ? ` (${uniqueNames.join(', ')})` : '';
+    deductionsList.push({
+      name: `กองทุนรวมเพื่อการเลี้ยงชีพ RMF (${rmfItems.length} รายการ)`,
+      amount: rmfDeduction,
+      maxCapText: 'รวม กบข. ไม่เกิน 500,000 บาท',
+      note: `สิทธิลดหย่อนกองทุน RMF${rmfSummary}`,
+    });
+  }
+
   if (thaiEsgDeduction > 0) {
     deductionsList.push({
       name: 'กองทุนรวมไทยเพื่อความยั่งยืน (ThaiESG)',
@@ -541,12 +583,30 @@ export function calculateTaxAssessment(
     });
   }
 
+  if (insuranceDeduction > 0) {
+    deductionsList.push({
+      name: 'เบี้ยประกันชีวิต / ประกันสุขภาพ',
+      amount: insuranceDeduction,
+      maxCapText: 'สูงสุดไม่เกิน 100,000 บาท',
+      note: 'สิทธิลดหย่อนเบี้ยประกันชีวิตและสุขภาพ',
+    });
+  }
+
+  if (homeLoanDeduction > 0) {
+    deductionsList.push({
+      name: 'ดอกเบี้ยเงินกู้ยืมเพื่อที่อยู่อาศัย (บ้าน)',
+      amount: homeLoanDeduction,
+      maxCapText: 'สูงสุดไม่เกิน 100,000 บาท',
+      note: 'สิทธิลดหย่อนดอกเบี้ยเงินกู้ซื้อบ้าน',
+    });
+  }
+
   if (otherDeductions > 0) {
     deductionsList.push({
       name: 'สิทธิลดหย่อนอื่นๆ เพิ่มเติม',
       amount: otherDeductions,
       maxCapText: 'ตามเกณฑ์สรรพากร',
-      note: 'ประกันชีวิต, ดอกเบี้ยบ้าน หรือเงินบริจาค',
+      note: 'เงินบริจาค หรือรายการลดหย่อนอื่นๆ',
     });
   }
 
