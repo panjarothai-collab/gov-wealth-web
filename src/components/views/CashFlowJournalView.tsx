@@ -195,10 +195,13 @@ export default function CashFlowJournalView() {
   const dividendCalc = useMemo(() => {
     if (revCategory !== '40(4)(b)') return null;
     const gross = parseFloat(revGrossAmount) || 0;
-    const withholding = parseFloat((gross * 0.10).toFixed(2));
+    const customWithholding = parseFloat(revWithholdingTax);
+    const withholding = !isNaN(customWithholding)
+      ? customWithholding
+      : parseFloat((gross * 0.10).toFixed(2));
     const net = parseFloat((gross - withholding).toFixed(2));
     // Credit formula: Gross * (CorpRate / (100 - CorpRate))
-    const creditFactor = revCorpTaxRate / (100 - revCorpTaxRate);
+    const creditFactor = revCorpTaxRate > 0 ? revCorpTaxRate / (100 - revCorpTaxRate) : 0;
     const taxCredit = parseFloat((gross * creditFactor).toFixed(2));
     const totalBenefit = parseFloat((withholding + taxCredit).toFixed(2));
 
@@ -206,11 +209,11 @@ export default function CashFlowJournalView() {
       gross,
       withholding,
       net,
+      corpRate: revCorpTaxRate,
       taxCredit,
       totalBenefit,
-      corpRate: revCorpTaxRate,
     };
-  }, [revCategory, revGrossAmount, revCorpTaxRate]);
+  }, [revCategory, revGrossAmount, revCorpTaxRate, revWithholdingTax]);
 
   // Calculate net civil servant salary dynamically
   const payrollNetCalculated = useMemo(() => {
@@ -2174,6 +2177,20 @@ export default function CashFlowJournalView() {
                           ))}
                         </select>
                       </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-300 mb-1">
+                        ภาษีหัก ณ ที่จ่าย (ค่าเริ่มต้น 10% อัตโนมัติ หรือใส่ 0.00 หากเป็นปันผลยกเว้นภาษี BOI)
+                      </label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        placeholder="ปล่อยว่างเพื่อคิด 10% อัตโนมัติ หรือใส่ตามใบรับรอง"
+                        value={revWithholdingTax}
+                        onChange={(e) => setRevWithholdingTax(e.target.value)}
+                        className="w-full px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs"
+                      />
                     </div>
 
                     {/* Dynamic Auto-Calculation Result */}
