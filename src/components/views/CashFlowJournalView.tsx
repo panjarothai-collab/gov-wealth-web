@@ -164,9 +164,17 @@ export default function CashFlowJournalView() {
 
   // Credit Card Liabilities
   const creditCardLiabilities = useMemo(() => {
-    return database.liabilities.filter(
-      (l) => l.name.toLowerCase().includes('บัตร') || l.lender.toLowerCase().includes('บัตร')
+    const filtered = database.liabilities.filter(
+      (l) =>
+        l.name.toLowerCase().includes('บัตร') ||
+        l.lender.toLowerCase().includes('บัตร') ||
+        l.name.toLowerCase().includes('kb') ||
+        l.name.toLowerCase().includes('ktc') ||
+        l.name.toLowerCase().includes('card') ||
+        l.lender.toLowerCase().includes('กสิกร') ||
+        l.lender.toLowerCase().includes('กรุงไทย')
     );
+    return filtered.length > 0 ? filtered : database.liabilities;
   }, [database.liabilities]);
 
   // Bank Assets (Cash & Equivalents)
@@ -1844,6 +1852,11 @@ export default function CashFlowJournalView() {
                       </option>
                     ))}
                   </select>
+                  {creditCardLiabilities.length === 0 && (
+                    <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-1">
+                      ⚠️ ยังไม่มีรายการบัตรเครดิต/หนี้สินในระบบ คุณสามารถไปเพิ่มได้ที่แท็บ &quot;งบดุล&quot; (ตารางหนี้สิน)
+                    </p>
+                  )}
                 </div>
 
                 {ccAction === 'PAYMENT' && (
