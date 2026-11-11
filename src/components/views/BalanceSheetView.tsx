@@ -33,7 +33,7 @@ import {
 import { Asset, AssetCategory, ASSET_CATEGORIES, Liability } from '@/types/wealth';
 
 export default function BalanceSheetView() {
-  const { database, addAsset, updateAsset, deleteAsset, addLiability, deleteLiability, setActiveTab } = useWealth();
+  const { database, addAsset, updateAsset, deleteAsset, addLiability, updateLiability, deleteLiability, setActiveTab } = useWealth();
   const [showAddAsset, setShowAddAsset] = useState(false);
   const [showAddLiability, setShowAddLiability] = useState(false);
 
@@ -47,6 +47,41 @@ export default function BalanceSheetView() {
   const [editInstitution, setEditInstitution] = useState('');
   const [editAmount, setEditAmount] = useState('');
   const [editNotes, setEditNotes] = useState('');
+
+  // Edit Liability Modal State
+  const [editingLiability, setEditingLiability] = useState<Liability | null>(null);
+  const [editLiabName, setEditLiabName] = useState('');
+  const [editLiabLender, setEditLiabLender] = useState('');
+  const [editLiabTotal, setEditLiabTotal] = useState('');
+  const [editLiabMonthly, setEditLiabMonthly] = useState('');
+  const [editLiabMonths, setEditLiabMonths] = useState('');
+
+  const handleStartEditLiability = (liab: Liability) => {
+    setEditingLiability(liab);
+    setEditLiabName(liab.name);
+    setEditLiabLender(liab.lender);
+    setEditLiabTotal(liab.totalOutstanding.toString());
+    setEditLiabMonthly(liab.monthlyInstallment.toString());
+    setEditLiabMonths(liab.remainingMonths.toString());
+  };
+
+  const handleSaveEditLiability = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingLiability) return;
+    const parsedTotal = parseFloat(editLiabTotal);
+    if (isNaN(parsedTotal) || parsedTotal < 0) {
+      alert('กรุณากรอกยอดหนี้คงค้างให้ถูกต้อง');
+      return;
+    }
+    updateLiability(editingLiability.id, {
+      name: editLiabName.trim() || editingLiability.name,
+      lender: editLiabLender.trim() || editingLiability.lender,
+      totalOutstanding: parsedTotal,
+      monthlyInstallment: parseFloat(editLiabMonthly) || 0,
+      remainingMonths: parseInt(editLiabMonths) || 1,
+    });
+    setEditingLiability(null);
+  };
 
   const handleStartEdit = (asset: Asset) => {
     setEditingAsset(asset);
@@ -680,13 +715,26 @@ export default function BalanceSheetView() {
                     {formatCurrency(liab.totalOutstanding)} ฿
                   </td>
                   <td className="py-3 px-4 text-center">
-                    <button
-                      onClick={() => deleteLiability(liab.id)}
-                      className="text-slate-400 hover:text-rose-500 p-1 transition"
-                      title="ลบรายการ"
-                    >
-                      <Trash2 size={16} />
-                    </button>
+                    <div className="flex items-center justify-center gap-1">
+                      <button
+                        onClick={() => handleStartEditLiability(liab)}
+                        className="text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/50 p-1.5 rounded-lg transition"
+                        title="แก้ไข / ปรับยอดหนี้จริง"
+                      >
+                        <Pencil size={15} />
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (confirm(`คุณแน่ใจหรือไม่ว่าต้องการลบหนี้สิน "${liab.name}"?`)) {
+                            deleteLiability(liab.id);
+                          }
+                        }}
+                        className="text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/50 p-1.5 rounded-lg transition"
+                        title="ลบรายการ"
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -1084,6 +1132,134 @@ export default function BalanceSheetView() {
                   className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition shadow-xs flex items-center gap-1.5"
                 >
                   <Check size={14} /> บันทึกการปรับยอด
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Liability & Adjust Debt Modal */}
+      {editingLiability && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-in fade-in duration-150">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-rose-100 dark:bg-rose-950/80 text-rose-600 flex items-center justify-center shadow-xs">
+                  <CreditCard size={18} />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-900 dark:text-white text-base">
+                    แก้ไขหนี้สิน & ปรับยอดหนี้คงค้าง
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    ปรับยอดหนี้บัตรเครดิต/สินเชื่อให้ตรงกับความเป็นจริง (เช่น ลดยอดหนี้ที่คีย์ผิด หรือเปลี่ยนเป็น 0.00 ฿)
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setEditingLiability(null)}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 rounded-lg"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEditLiability} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  ชื่อรายการหนี้สิน / บัตรเครดิต *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editLiabName}
+                  onChange={(e) => setEditLiabName(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm font-medium text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  เจ้าหนี้ / สถาบันการเงิน
+                </label>
+                <input
+                  type="text"
+                  value={editLiabLender}
+                  onChange={(e) => setEditLiabLender(e.target.value)}
+                  placeholder="เช่น กสิกรไทย, TTB, กรุงไทย"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-medium text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                />
+              </div>
+
+              {/* Highlighted Debt Balance Input */}
+              <div className="bg-rose-50/60 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800/80 rounded-2xl p-4">
+                <label className="block text-xs font-bold text-rose-900 dark:text-rose-200 mb-1.5 flex items-center justify-between">
+                  <span>ยอดหนี้คงค้างปัจจุบัน (บาท) *</span>
+                  <span className="text-[11px] font-normal text-rose-700 dark:text-rose-400">
+                    ยอดเดิม: {formatCurrency(editingLiability.totalOutstanding)} ฿
+                  </span>
+                </label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    required
+                    value={editLiabTotal}
+                    onChange={(e) => setEditLiabTotal(e.target.value)}
+                    className="w-full pl-4 pr-12 py-3 rounded-xl border-2 border-rose-400 dark:border-rose-600 bg-white dark:bg-slate-900 text-xl font-black text-rose-700 dark:text-rose-300 focus:outline-none focus:ring-2 focus:ring-rose-500 shadow-xs"
+                  />
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-bold text-rose-600">
+                    ฿
+                  </span>
+                </div>
+                <p className="text-[11px] text-rose-700 dark:text-rose-400 mt-2 leading-relaxed">
+                  💡 หากเป็นรายการที่รูดผิดและยกเลิกแล้ว สามารถปรับยอดหนี้เป็น <b>0.00 ฿</b> หรือปรับตามใบแจ้งหนี้จริงได้ทันที
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    ยอดผ่อนชำระต่อเดือน (บาท)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={editLiabMonthly}
+                    onChange={(e) => setEditLiabMonthly(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-medium text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    คงเหลือ (เดือน)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={editLiabMonths}
+                    onChange={(e) => setEditLiabMonths(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-medium text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setEditingLiability(null)}
+                  className="px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-semibold text-slate-600 dark:text-slate-300 transition"
+                >
+                  ยกเลิก
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition shadow-xs flex items-center gap-1.5"
+                >
+                  <Check size={14} /> บันทึกการปรับยอดหนี้
                 </button>
               </div>
             </form>

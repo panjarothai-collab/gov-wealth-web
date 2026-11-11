@@ -693,8 +693,89 @@ export function WealthProvider({ children }: { children: React.ReactNode }) {
 
     let updatedTaxItems = [...database.taxItems];
     let updatedAssets = [...database.assets];
+    let updatedLiabilities = [...database.liabilities];
 
-    // 1. If it was a GPF deduction entry:
+    // 1. If it was a Credit Card Spend entry (revert increased liability):
+    if (target.smartType === 'CREDIT_CARD_SPEND' && target.targetLiabilityId) {
+      updatedLiabilities = updatedLiabilities.map((l) =>
+        l.id === target.targetLiabilityId
+          ? { ...l, totalOutstanding: Math.max(0, (l.totalOutstanding || 0) - target.amount) }
+          : l
+      );
+    }
+
+    // 2. If it was a Credit Card Payment entry (restore debt and restore bank balance):
+    if (target.smartType === 'CREDIT_CARD_PAYMENT') {
+      if (target.targetLiabilityId) {
+        updatedLiabilities = updatedLiabilities.map((l) =>
+          l.id === target.targetLiabilityId
+            ? { ...l, totalOutstanding: (l.totalOutstanding || 0) + target.amount }
+            : l
+        );
+      }
+      if (target.sourceAssetId) {
+        updatedAssets = updatedAssets.map((a) =>
+          a.id === target.sourceAssetId
+            ? { ...a, amountTHB: (a.amountTHB || 0) + target.amount }
+            : a
+        );
+      }
+    }
+
+    // 3. If it was an Investment Buy entry:
+    if (target.smartType === 'INVESTMENT_BUY') {
+      if (target.targetAssetId) {
+        updatedAssets = updatedAssets.map((a) =>
+          a.id === target.targetAssetId
+            ? { ...a, amountTHB: Math.max(0, (a.amountTHB || 0) - target.amount) }
+            : a
+        );
+      }
+      if (target.sourceAssetId) {
+        updatedAssets = updatedAssets.map((a) =>
+          a.id === target.sourceAssetId
+            ? { ...a, amountTHB: (a.amountTHB || 0) + target.amount }
+            : a
+        );
+      }
+    }
+
+    // 4. If it was a Transfer between accounts:
+    if (target.type === 'โอนเงิน' && target.smartType === 'STANDARD') {
+      if (target.sourceAssetId) {
+        updatedAssets = updatedAssets.map((a) =>
+          a.id === target.sourceAssetId
+            ? { ...a, amountTHB: (a.amountTHB || 0) + target.amount }
+            : a
+        );
+      }
+      if (target.targetAssetId) {
+        updatedAssets = updatedAssets.map((a) =>
+          a.id === target.targetAssetId
+            ? { ...a, amountTHB: Math.max(0, (a.amountTHB || 0) - target.amount) }
+            : a
+        );
+      }
+    }
+
+    // 5. If it was a standard expense or income with smart sync sourceAssetId:
+    if (target.smartType === 'STANDARD' && target.sourceAssetId) {
+      if (target.type === 'จ่ายเงิน (ค่าใช้จ่าย)') {
+        updatedAssets = updatedAssets.map((a) =>
+          a.id === target.sourceAssetId
+            ? { ...a, amountTHB: (a.amountTHB || 0) + target.amount }
+            : a
+        );
+      } else if (target.type === 'รับเงิน (รายได้)') {
+        updatedAssets = updatedAssets.map((a) =>
+          a.id === target.sourceAssetId
+            ? { ...a, amountTHB: Math.max(0, (a.amountTHB || 0) - target.amount) }
+            : a
+        );
+      }
+    }
+
+    // 6. If it was a GPF deduction entry:
     if (target.taxDeductionTag === 'กบข.' || target.title.includes('กบข')) {
       const targetDatePrefix = target.date ? target.date.substring(0, 10) : '';
       const matchIdx = updatedTaxItems.findIndex(
@@ -722,7 +803,7 @@ export function WealthProvider({ children }: { children: React.ReactNode }) {
       }
     }
 
-    // 2. If it was a Coop share entry:
+    // 7. If it was a Coop share entry:
     if (target.title.includes('ค่าหุ้น') && target.title.includes('สหกรณ์')) {
       const coopIdx = updatedAssets.findIndex((a) => a.name.includes('สหกรณ์'));
       if (coopIdx >= 0) {
@@ -736,6 +817,7 @@ export function WealthProvider({ children }: { children: React.ReactNode }) {
     const updated = {
       ...database,
       assets: updatedAssets,
+      liabilities: updatedLiabilities,
       journalEntries: database.journalEntries.filter((e) => e.id !== id),
       taxItems: updatedTaxItems,
     };
