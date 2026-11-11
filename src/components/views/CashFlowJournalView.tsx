@@ -66,9 +66,9 @@ type ModalTab = 'STANDARD' | 'BANK_SLIP' | 'CREDIT_CARD' | 'INVESTMENT' | 'REVEN
 export default function CashFlowJournalView() {
   const { database, addJournalEntry, addPayrollBatch, deleteJournalEntry } = useWealth();
 
-  // Filters
-  const [selectedMonth, setSelectedMonth] = useState<number | 'ALL'>('ALL');
-  const [selectedYear, setSelectedYear] = useState<number>(2569);
+  // Filters (Default to current month and year)
+  const [selectedMonth, setSelectedMonth] = useState<number | 'ALL'>(() => new Date().getMonth() + 1);
+  const [selectedYear, setSelectedYear] = useState<number>(() => new Date().getFullYear() + 543);
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState<'ALL' | JournalType>('ALL');
 
@@ -770,6 +770,7 @@ export default function CashFlowJournalView() {
               >
                 <option value={2569}>2569</option>
                 <option value={2568}>2568</option>
+                <option value={2567}>2567</option>
                 <option value={2570}>2570</option>
               </select>
             </div>
