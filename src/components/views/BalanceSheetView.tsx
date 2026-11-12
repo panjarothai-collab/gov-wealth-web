@@ -61,7 +61,8 @@ export default function BalanceSheetView() {
     setEditLiabName(liab.name);
     setEditLiabLender(liab.lender);
     setEditLiabTotal(liab.totalOutstanding.toString());
-    setEditLiabMonthly(liab.monthlyInstallment.toString());
+    const isOneMonth = liab.remainingMonths === 1;
+    setEditLiabMonthly((isOneMonth ? liab.totalOutstanding : liab.monthlyInstallment).toString());
     setEditLiabMonths(liab.remainingMonths.toString());
   };
 
@@ -73,12 +74,13 @@ export default function BalanceSheetView() {
       alert('กรุณากรอกยอดหนี้คงค้างให้ถูกต้อง');
       return;
     }
+    const months = parseInt(editLiabMonths) || 1;
     updateLiability(editingLiability.id, {
       name: editLiabName.trim() || editingLiability.name,
       lender: editLiabLender.trim() || editingLiability.lender,
       totalOutstanding: parsedTotal,
-      monthlyInstallment: parseFloat(editLiabMonthly) || 0,
-      remainingMonths: parseInt(editLiabMonths) || 1,
+      monthlyInstallment: months === 1 ? parsedTotal : (parseFloat(editLiabMonthly) || 0),
+      remainingMonths: months,
     });
     setEditingLiability(null);
   };
@@ -209,12 +211,14 @@ export default function BalanceSheetView() {
   const handleCreateLiability = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newLiabName || !newLiabTotal) return;
+    const total = parseFloat(newLiabTotal) || 0;
+    const months = parseInt(newLiabMonths) || 12;
     addLiability({
       name: newLiabName,
       lender: newLiabLender || 'สถาบันการเงิน',
-      totalOutstanding: parseFloat(newLiabTotal) || 0,
-      monthlyInstallment: parseFloat(newLiabMonthly) || 0,
-      remainingMonths: parseInt(newLiabMonths) || 12,
+      totalOutstanding: total,
+      monthlyInstallment: months === 1 ? total : (parseFloat(newLiabMonthly) || 0),
+      remainingMonths: months,
       paidThisMonth: 0,
     });
     setNewLiabName('');
@@ -706,7 +710,7 @@ export default function BalanceSheetView() {
                     {liab.lender}
                   </td>
                   <td className="py-3 px-4 text-right text-slate-700 dark:text-slate-300">
-                    {formatCurrency(liab.monthlyInstallment)} ฿
+                    {formatCurrency(liab.remainingMonths === 1 ? liab.totalOutstanding : liab.monthlyInstallment)} ฿
                   </td>
                   <td className="py-3 px-4 text-center text-xs font-semibold text-amber-600">
                     {liab.remainingMonths} ด.
@@ -1221,15 +1225,23 @@ export default function BalanceSheetView() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    ยอดผ่อนชำระต่อเดือน (บาท)
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1 flex items-center justify-between">
+                    <span>ยอดผ่อนต่อเดือน (บาท)</span>
+                    {editLiabMonths === '1' && (
+                      <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">
+                        (ใช้ยอดคงค้าง)
+                      </span>
+                    )}
                   </label>
                   <input
                     type="number"
                     step="0.01"
-                    value={editLiabMonthly}
+                    disabled={editLiabMonths === '1'}
+                    value={editLiabMonths === '1' ? editLiabTotal : editLiabMonthly}
                     onChange={(e) => setEditLiabMonthly(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-medium text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    className={`w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-medium text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 ${
+                      editLiabMonths === '1' ? 'opacity-80 bg-slate-100 dark:bg-slate-800/80 cursor-not-allowed' : ''
+                    }`}
                   />
                 </div>
 
@@ -1241,7 +1253,13 @@ export default function BalanceSheetView() {
                     type="number"
                     min="0"
                     value={editLiabMonths}
-                    onChange={(e) => setEditLiabMonths(e.target.value)}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setEditLiabMonths(val);
+                      if (val === '1') {
+                        setEditLiabMonthly(editLiabTotal);
+                      }
+                    }}
                     className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-medium text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   />
                 </div>

@@ -41,7 +41,7 @@ export function calculateFinancialHealth(
   );
 
   const monthlyLiabilitiesInstallment = liabilities.reduce(
-    (sum, l) => sum + (l.monthlyInstallment || 0),
+    (sum, l) => sum + (Number(l.remainingMonths) === 1 ? (l.totalOutstanding || 0) : (l.monthlyInstallment || 0)),
     0
   );
 

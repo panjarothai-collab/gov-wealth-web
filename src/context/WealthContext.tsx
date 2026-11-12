@@ -343,9 +343,13 @@ export function WealthProvider({ children }: { children: React.ReactNode }) {
 
   const addLiability = (liability: Omit<Liability, 'id'>) => {
     if (!database) return;
+    const isOneMonth = Number(liability.remainingMonths) === 1;
+    const total = Number(liability.totalOutstanding || 0);
     const newLiability: Liability = {
       ...liability,
       id: crypto.randomUUID(),
+      totalOutstanding: total,
+      monthlyInstallment: isOneMonth ? total : Number(liability.monthlyInstallment || 0),
     };
     const updated = {
       ...database,
@@ -358,7 +362,17 @@ export function WealthProvider({ children }: { children: React.ReactNode }) {
     if (!database) return;
     const updated = {
       ...database,
-      liabilities: database.liabilities.map((l) => (l.id === id ? { ...l, ...liabilityUpdate } : l)),
+      liabilities: database.liabilities.map((l) => {
+        if (l.id !== id) return l;
+        const merged = { ...l, ...liabilityUpdate };
+        const isOneMonth = Number(merged.remainingMonths) === 1;
+        const total = Number(merged.totalOutstanding || 0);
+        return {
+          ...merged,
+          totalOutstanding: total,
+          monthlyInstallment: isOneMonth ? total : Number(merged.monthlyInstallment || 0),
+        };
+      }),
     };
     saveDatabase(updated);
   };
@@ -399,19 +413,31 @@ export function WealthProvider({ children }: { children: React.ReactNode }) {
 
     if (newEntry.smartType === 'CREDIT_CARD_SPEND' && newEntry.targetLiabilityId) {
       // Swiping credit card increases liability balance
-      updatedLiabilities = updatedLiabilities.map((l) =>
-        l.id === newEntry.targetLiabilityId
-          ? { ...l, totalOutstanding: (l.totalOutstanding || 0) + newEntry.amount }
-          : l
-      );
+      updatedLiabilities = updatedLiabilities.map((l) => {
+        if (l.id === newEntry.targetLiabilityId) {
+          const newTotal = (l.totalOutstanding || 0) + newEntry.amount;
+          return {
+            ...l,
+            totalOutstanding: newTotal,
+            monthlyInstallment: Number(l.remainingMonths) === 1 ? newTotal : l.monthlyInstallment,
+          };
+        }
+        return l;
+      });
     } else if (newEntry.smartType === 'CREDIT_CARD_PAYMENT') {
       // Paying credit card reduces liability balance and reduces source asset balance
       if (newEntry.targetLiabilityId) {
-        updatedLiabilities = updatedLiabilities.map((l) =>
-          l.id === newEntry.targetLiabilityId
-            ? { ...l, totalOutstanding: Math.max(0, (l.totalOutstanding || 0) - newEntry.amount) }
-            : l
-        );
+        updatedLiabilities = updatedLiabilities.map((l) => {
+          if (l.id === newEntry.targetLiabilityId) {
+            const newTotal = Math.max(0, (l.totalOutstanding || 0) - newEntry.amount);
+            return {
+              ...l,
+              totalOutstanding: newTotal,
+              monthlyInstallment: Number(l.remainingMonths) === 1 ? newTotal : l.monthlyInstallment,
+            };
+          }
+          return l;
+        });
       }
       if (newEntry.sourceAssetId) {
         updatedAssets = updatedAssets.map((a) =>
@@ -697,21 +723,33 @@ export function WealthProvider({ children }: { children: React.ReactNode }) {
 
     // 1. If it was a Credit Card Spend entry (revert increased liability):
     if (target.smartType === 'CREDIT_CARD_SPEND' && target.targetLiabilityId) {
-      updatedLiabilities = updatedLiabilities.map((l) =>
-        l.id === target.targetLiabilityId
-          ? { ...l, totalOutstanding: Math.max(0, (l.totalOutstanding || 0) - target.amount) }
-          : l
-      );
+      updatedLiabilities = updatedLiabilities.map((l) => {
+        if (l.id === target.targetLiabilityId) {
+          const newTotal = Math.max(0, (l.totalOutstanding || 0) - target.amount);
+          return {
+            ...l,
+            totalOutstanding: newTotal,
+            monthlyInstallment: Number(l.remainingMonths) === 1 ? newTotal : l.monthlyInstallment,
+          };
+        }
+        return l;
+      });
     }
 
     // 2. If it was a Credit Card Payment entry (restore debt and restore bank balance):
     if (target.smartType === 'CREDIT_CARD_PAYMENT') {
       if (target.targetLiabilityId) {
-        updatedLiabilities = updatedLiabilities.map((l) =>
-          l.id === target.targetLiabilityId
-            ? { ...l, totalOutstanding: (l.totalOutstanding || 0) + target.amount }
-            : l
-        );
+        updatedLiabilities = updatedLiabilities.map((l) => {
+          if (l.id === target.targetLiabilityId) {
+            const newTotal = (l.totalOutstanding || 0) + target.amount;
+            return {
+              ...l,
+              totalOutstanding: newTotal,
+              monthlyInstallment: Number(l.remainingMonths) === 1 ? newTotal : l.monthlyInstallment,
+            };
+          }
+          return l;
+        });
       }
       if (target.sourceAssetId) {
         updatedAssets = updatedAssets.map((a) =>
@@ -987,7 +1025,16 @@ function normalizeImportedData(raw: any): FullWealthDatabase {
       gpfPlan: raw.profile?.gpfPlan || DEFAULT_GPF_PLAN,
     },
     assets: raw.assets || [],
-    liabilities: raw.liabilities || [],
+    liabilities: (raw.liabilities || []).map((l: any) => {
+      const isOneMonth = Number(l.remainingMonths) === 1;
+      const total = Number(l.totalOutstanding || 0);
+      return {
+        ...l,
+        totalOutstanding: total,
+        monthlyInstallment: isOneMonth ? total : Number(l.monthlyInstallment || 0),
+        remainingMonths: Number(l.remainingMonths || 0),
+      };
+    }),
     journalEntries: normalizedJournal,
     taxItems: normalizedTaxItems,
     bankPresets: raw.bankPresets || [],
